@@ -39,3 +39,46 @@ Das Beziehungsdiagramm steht im README. Kurzfassung: `orders` ist die Mitte. Nac
 - **Bewertungen doppelt**: 547 Bestellungen haben mehr als eine Bewertung, 789 `review_id` tauchen bei mehreren Bestellungen auf. Das ist im Rohdatensatz so. Welche Bewertung zählt, wird in AP2 beim Aufbau von `fact_orders` entschieden.
 
 **Abnahmekriterium AP1** (Beziehungsdiagramm aus dem Kopf skizzierbar): erfüllt. Das Diagramm steht im README, jede Kante ist mit einer Zahl aus `02_validation.sql` Teil A belegt.
+
+---
+
+## AP2 — Star-Schema aufbauen, Zeitstempel-Kennzahlen berechnen
+
+### Was wurde gemacht
+
+- `01_sql/01_schema.sql` baut aus den neun Rohtabellen vier Dimensionen (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`) und zwei Faktentabellen (`fact_order_items` auf Positionsebene, `fact_orders` auf Bestellebene). Dazu die Hilfstabelle `stg_geo_prefix` mit einer Zeile je PLZ-Präfix.
+- `fact_orders` enthält je Bestellung die verdichteten Positionen (Anzahl, Warenumsatz, Fracht), Zahlungen (Gesamtbetrag, maximale Ratenzahl, Hauptzahlart), die maßgebliche Bewertung und die fünf Laufzeit-Kennzahlen aus der Zeitstempelkette.
+- `02_python/01_data_prep.py` führt Laden und Schema-Aufbau in einem Schritt aus und bricht ab, wenn eine von drei Pflichtprüfungen scheitert.
+
+### Was kam heraus
+
+| Tabelle | Zeilen |
+|---|---|
+| dim_date | 852 (1. September 2016 bis 31. Dezember 2018) |
+| dim_customer | 96.096 (eine je realer Person) |
+| dim_seller | 3.095 |
+| dim_product | 32.951 |
+| fact_order_items | 112.650 (= order_items) |
+| fact_orders | 99.441 (= orders) |
+
+Kontrollsummen: Warenumsatz in `fact_orders` = 13.591.643,70 BRL = Summe `price` in `order_items`. Zahlbetrag = 16.008.872,12 BRL = Summe `payment_value` in `order_payments`. Der Fan-out ist damit nachweislich gelöst: Kein Betrag wird doppelt gezählt, keine Bestellung geht verloren.
+
+Die drei Pflichtprüfungen: `fact_orders` = `orders` = 99.441 Zeilen; Wiederkaufrate 2.997 von 96.096 = 3,12 %; Validierung läuft fehlerfrei.
+
+Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht von -147 bis +188 Tagen, Gesamtlaufzeit bis 209,6 Tage. 1.359 Bestellungen haben eine negative Bearbeitungszeit (Übergabe an Logistik vor Zahlungsfreigabe), vermutlich ein Prozessartefakt beim Buchen der Freigabe. Diese Fälle werden in AP3 gezählt und in den Lieferzeitanalysen nicht bereinigt, weil sie die Reihenfolge der Ereignisse, nicht die Zustellung betreffen.
+
+### Warum so entschieden
+
+- **Kundenkennung**: `dim_customer` hat einen Schlüssel je `customer_unique_id`. Bei 250 Personen mit mehreren Adressen zählt die Adresse der jüngsten Bestellung.
+- **Geolocation**: Median je PLZ-Präfix, 42 Koordinaten außerhalb Brasiliens vorher entfernt. 269 Kunden und 7 Verkäufer bleiben ohne Koordinaten, weil ihr Präfix in der Geolocation fehlt.
+- **Zwei Faktentabellen**: Verkäufer und Produkt sind nur auf Positionsebene eindeutig (1.278 Bestellungen mit mehreren Verkäufern). Umsatz, Zahlung und Bewertung sind auf Bestellebene eindeutig. Eine einzige Tabelle müsste eine der beiden Ebenen verfälschen.
+- **Vorverdichtung**: Positionen, Zahlungen und Bewertungen werden in getrennten CTEs je `order_id` auf eine Zeile gebracht, bevor sie an `orders` gehängt werden.
+- **LEFT JOIN**: Alle 99.441 Bestellungen bleiben erhalten, auch ohne Position, Zahlung oder Bewertung. Ein INNER JOIN hätte 775 Bestellungen ohne Position und damit fast alle `unavailable`-Fälle verloren, die für die Stornoquote gebraucht werden.
+- **Umsatzdefinition**: `item_revenue` = Summe `price`. Fracht getrennt. `paid_total` nur für Zahlungsanalysen, weil Gutscheine und Mehrfachzahlungen den Betrag vom Warenwert entkoppeln.
+- **Hauptzahlart**: die Zahlart mit dem größten Betrag je Bestellung. 2.246 Bestellungen kombinieren mehrere Zahlarten, meist Kreditkarte plus Gutschein.
+- **Mehrfachbewertungen**: die jüngste Bewertung je Bestellung. Bei 202 der 547 Doppelbewertungen unterscheidet sich die Punktzahl. Die letzte Bewertung ist das endgültige Urteil des Kunden. Auf den Gesamtdurchschnitt wirkt sich das kaum aus (4,086 statt 4,086 über alle Zeilen).
+- **Verzug in Kalendertagen**: Das Lieferversprechen ist ein Datum ohne Uhrzeit. Der Verzug wird deshalb als Differenz der Kalendertage berechnet, `is_late` ist Verzug größer null. Die übrigen Laufzeiten sind Dezimaltage aus den vollen Zeitstempeln.
+- **Kategorien**: zwei fehlende Übersetzungen von Hand ergänzt, fehlende Kategorie wird `unknown`.
+- **first_sale_date** je Verkäufer aus allen Bestellungen unabhängig vom Status, weil es um den Zeitpunkt des Aktivwerdens geht.
+
+**Abnahmekriterium AP2** (`fact_orders` steht, Fan-out nachweislich gelöst): erfüllt. Zeilenzahl 99.441 = `orders`, Umsatz- und Zahlungssumme stimmen auf den Cent mit den Rohtabellen überein. Der explizite Fan-out-Nachweis (naiver Join gegen Aggregation) folgt als Abfrage in AP3.

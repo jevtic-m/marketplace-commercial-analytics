@@ -41,7 +41,7 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 ## Methodik
 
 1. Neun Rohtabellen in DuckDB geladen und Schlüsselbeziehungen geprüft (`01_sql/00_load.sql`, `02_validation.sql` Teil A)
-2. Star-Schema mit vier Dimensionen und zwei Faktentabellen [folgt in AP2]
+2. Star-Schema mit vier Dimensionen (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`) und zwei Faktentabellen (`fact_order_items` auf Positionsebene, `fact_orders` auf Bestellebene, vorverdichtet gegen Fan-out) in `01_sql/01_schema.sql`
 3. Datenqualitätsprüfungen inkl. Zahlungsabstimmung und Fan-out-Kontrolle [folgt in AP3]
 4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten [folgt in AP4]
 5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen [folgt in AP4/AP5]
@@ -54,6 +54,11 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 ## Annahmen und Limitationen
 
 - Kundenbezogene Kennzahlen laufen ausschließlich über `customer_unique_id`. `customer_id` wird pro Bestellung neu vergeben und ist nur der technische Join-Schlüssel zu `orders`. Über `customer_id` gerechnet wäre die Wiederkaufrate exakt null; tatsächlich haben 2.997 Personen mehr als eine Bestellung.
+- Zwei Faktentabellen: `fact_orders` ist je `order_id` vorverdichtet (Positionen, Zahlungen, Bewertungen in getrennten CTEs), damit Umsatz und Zahlbetrag nie mehrfach gezählt werden. Kontrollsumme: Warenumsatz 13.591.643,70 BRL, identisch mit der Summe über `order_items`.
+- Umsatz ist die Summe der Positionspreise (`price`). Fracht wird getrennt geführt, der Zahlbetrag (`payment_value`) nur für Zahlungsanalysen verwendet.
+- Bei 547 Bestellungen mit mehreren Bewertungen zählt die jüngste Bewertung.
+- Verzug gegen Lieferversprechen wird in Kalendertagen gerechnet (Zustelldatum minus versprochenes Datum); positiv heißt zu spät.
+- Geolocation wird vor dem Join auf den Median je PLZ-Präfix verdichtet, 42 Koordinaten außerhalb Brasiliens werden verworfen.
 - Weitere Annahmen folgen mit den jeweiligen Arbeitspaketen.
 
 ## Reproduktion
@@ -62,9 +67,11 @@ Voraussetzung: Python 3.11 oder neuer. Rohdaten von Kaggle herunterladen und die
 
 ```bash
 pip install -r requirements.txt
-python 02_python/run_sql.py 01_sql/00_load.sql
+python 02_python/01_data_prep.py
 python 02_python/run_sql.py 01_sql/02_validation.sql
 ```
+
+`01_data_prep.py` lädt die CSVs (`00_load.sql`), baut das Star-Schema (`01_schema.sql`) und prüft: `fact_orders` = `orders` (99.441 Zeilen), Wiederkaufrate über `customer_unique_id` größer null (3,12 %), Validierung läuft fehlerfrei.
 
 Weitere Schritte folgen mit den nächsten Arbeitspaketen.
 

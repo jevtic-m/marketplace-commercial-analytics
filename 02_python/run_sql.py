@@ -16,6 +16,9 @@ import pandas as pd
 
 DB_PATH = Path("data/olist.duckdb")
 
+# Umlaute auch in der Windows-Konsole korrekt ausgeben
+sys.stdout.reconfigure(encoding="utf-8")
+
 # Ausgabe nicht abschneiden, damit auch breite Ergebnistabellen lesbar bleiben
 pd.set_option("display.width", 220)
 pd.set_option("display.max_columns", 40)
