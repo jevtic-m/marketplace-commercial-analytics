@@ -1,0 +1,11 @@
+duration_class,delivery,n_orders,avg_review
+bis 7 Tage,pünktlich,25918,4.419
+bis 7 Tage,verspätet,59,4.0
+8 bis 14,pünktlich,39562,4.32
+8 bis 14,verspätet,312,3.343
+15 bis 21,pünktlich,16980,4.176
+15 bis 21,verspätet,527,2.909
+22 bis 30,pünktlich,5812,3.959
+22 bis 30,verspätet,2008,2.591
+über 30,pünktlich,910,3.67
+über 30,verspätet,3472,1.863

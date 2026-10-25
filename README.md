@@ -44,8 +44,9 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 2. Star-Schema mit vier Dimensionen (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`) und zwei Faktentabellen (`fact_order_items` auf Positionsebene, `fact_orders` auf Bestellebene, vorverdichtet gegen Fan-out) in `01_sql/01_schema.sql`
 3. Datenqualitätsprüfungen inkl. Zahlungsabstimmung und Fan-out-Kontrolle (`01_sql/02_validation.sql`, Teil A und B)
 4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten (`01_sql/03_commercial.sql`)
-5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen, Fracht (`01_sql/04_operations.sql`) [Vertiefung in Python folgt in AP5]
-6. Verkäufer-Scorecard und Cutoff-Analyse [folgt in AP6]
+5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen, Fracht (`01_sql/04_operations.sql`), vertieft mit Gegenprobe, Regression und Robustheitsprüfungen in `02_python/02_delivery_analysis.py`
+6. Kunden: RFM-Segmente und Merkmale der Wiederkäufer (`02_python/04_rfm.py`)
+7. Verkäufer-Scorecard und Cutoff-Analyse [folgt in AP6]
 
 ## Ergebnisse
 
@@ -71,9 +72,22 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 
 Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 
+![Bewertung je Verzugsklasse](reports/figures/02_review_by_delay_class.png)
+
+- **Versprechen schlägt Dauer.** Auch pünktliche Lieferungen werden mit wachsender Dauer etwas schlechter bewertet (4,42 bei bis zu 7 Tagen, 3,67 bei über 30 Tagen). Bei gleicher Dauer geht ein gebrochenes Versprechen aber mit 1,54 Sternen weniger einher, eine Woche längere Lieferung nur mit 0,15 Sternen. Verspätete Bestellungen sind 6,7 % der bewerteten Bestellungen und 36,8 % aller Ein-Stern-Bewertungen.
+
+![Bewertung nach Lieferdauer, pünktlich gegen verspätet](reports/figures/02_review_by_duration_on_time_vs_late.png)
+
 - **Fracht.** Den höchsten Frachtanteil hat electronics mit 29,5 % des Warenwerts. Über Regionsgrenzen steigt der Frachtanteil von 13,0 % auf 18,8 %, und 83,7 % aller Positionen kommen von Verkäufern aus dem Sudeste.
 
-[Weitere Ergebnisse folgen mit AP5 und AP6.]
+- **Frachttreiber.** Gewicht erklärt allein 37 % der Streuung des Frachtwerts, Entfernung 15 %, alle drei Faktoren zusammen 56 %. Der Frachtanteil steigt von 11,8 % (bis 100 km) auf 22,7 % (über 2.000 km). Teuerste Route ist SP nach PB mit 43,31 BRL Fracht je Position.
+
+### Kunden (`02_python/04_rfm.py`)
+
+- **Wiederkauf ist selten.** Nur 2,15 % der Kunden kaufen an mehr als einem Tag, innerhalb von 180 Tagen nach dem Erstkauf 1,98 %. Eine klassische Kohortenanalyse wäre daher fast leer.
+- **Kategorie und Region unterscheiden Wiederkäufer, Service kaum messbar.** Wer zuerst Taschen und Accessoires, Tierbedarf oder Heimtextilien kauft, kommt bis zu dreimal so oft wieder wie bei cool_stuff (3,3 % gegenüber 1,0 %). Bewertung und Pünktlichkeit der Erstbestellung zeigen in die erwartete Richtung, sind aber statistisch nicht abgesichert.
+
+[Weitere Ergebnisse folgen mit AP6.]
 
 ## Annahmen und Limitationen
 
@@ -91,6 +105,10 @@ Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 - **Realisierter Umsatz.** Umsatzanalysen zählen nur zugestellte Bestellungen. Sie tragen 97,34 % des Warenumsatzes im Fenster.
 - **Leitgröße Verzug.** Maßgeblich für die Kundenzufriedenheit ist der Verzug gegen das versprochene Datum, nicht die absolute Lieferzeit.
 - **Regionen.** Bundesstaat und Region des Kunden kommen aus der Kundendimension (Adresse der jüngsten Bestellung). Das ordnet nur 43 Bestellungen (0,043 %) anders zu als ihre eigene Lieferadresse.
+- **Zusammenhang, keine Kausalität.** Verzug und Bewertung hängen stark zusammen, auch innerhalb von Einpositionsbestellungen und jeder Region. Mögliche Störfaktoren sind nachlässige Verkäufer, defekte oder falsch beschriebene Ware und entlegene Lieferadressen. Bestellungen mit mehreren Verkäufern werden schlecht bewertet, obwohl sie fast nie verspätet sind; es gibt also weitere Treiber.
+- **Entfernung als Luftlinie** zwischen den Median-Koordinaten der PLZ-Präfixe, nicht als Straßenkilometer.
+- **Wiederkauf** zählt nur einen späteren Kauftag innerhalb von 180 Tagen. Mehrere Bestellungen am selben Tag gelten als ein Kauf.
+- **Brasilianischer Markt.** Logistik und Zahlungsgewohnheiten (Boleto, Ratenzahlung) sind nicht direkt auf Europa übertragbar.
 - Weitere Annahmen folgen mit den jeweiligen Arbeitspaketen.
 
 ## Reproduktion
@@ -108,6 +126,8 @@ python 02_python/run_sql.py 01_sql/02_validation.sql
 ```bash
 python 02_python/run_sql.py 01_sql/03_commercial.sql
 python 02_python/run_sql.py 01_sql/04_operations.sql
+python 02_python/02_delivery_analysis.py
+python 02_python/04_rfm.py
 ```
 
 Weitere Schritte folgen mit den nächsten Arbeitspaketen.

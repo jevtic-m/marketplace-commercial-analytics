@@ -183,3 +183,67 @@ Pflichtprüfungen nach Neuaufbau: `fact_orders` = `orders` = 99.441 Zeilen, Wied
 - **Bundesstaat aus der Kundendimension**: Nur 43 Bestellungen (0,043 %) würden über die Lieferadresse einem anderen Staat zugeordnet. Die Abweichung vom Datenmodell, eine eigene Lieferadresse in `fact_orders` zu führen, lohnt sich dafür nicht.
 
 **Abnahmekriterium AP4** (alle Abfragen 5–12 laufen, jede mit Interpretationssatz): erfüllt. Beide Dateien laufen fehlerfrei, jede Abfrage trägt Frage und Ergebnis mit Zahl im Kommentar.
+
+---
+
+## AP5 — Lieferverzug gegen Bewertung, Frachtanalyse, Wiederkäufer (Python)
+
+### Was wurde gemacht
+
+- `02_python/02_delivery_analysis.py`, Teil 1: Bewertung je Verzugsklasse mit 95-%-Konfidenzintervall, Gegenprobe nach absoluter Lieferdauer, eine einfache Regression (Bewertung auf "verspätet ja/nein" und Lieferdauer), Rangkorrelation und drei Robustheitsprüfungen gegen naheliegende Störfaktoren.
+- `02_python/02_delivery_analysis.py`, Teil 2: Luftlinie zwischen Verkäufer und Kunde in Kilometern, Regression des Frachtwerts auf Gewicht, Volumen und Entfernung, Frachtanteil nach Entfernungsband, teuerste Routen.
+- `02_python/04_rfm.py`: RFM-Segmente je realer Person und der Vergleich Wiederkäufer gegen Einmalkäufer anhand dessen, was sie bei ihrer ersten Bestellung erlebt haben.
+- `02_python/chart_style.py`: gemeinsamer Diagrammstil (Farben, Achsen), damit alle Charts gleich aussehen.
+- Charts liegen in `reports/figures/`, CSV-Exporte in `03_dashboard/exports/`.
+
+### Was kam heraus
+
+**Verzug und Bewertung** (95.560 zugestellte, bewertete Bestellungen im Fenster)
+
+| Verzugsklasse | Anteil | Ø Bewertung (95-%-Konfidenzintervall) | Ein-Stern | Ein- oder Zwei-Stern |
+|---|---|---|---|---|
+| pünktlich | 93,3 % | 4,29 (4,28–4,30) | 6,6 % | 9,2 % |
+| 1 bis 3 Tage zu spät | 1,9 % | 3,29 (3,22–3,36) | 25,1 % | 32,1 % |
+| 4 bis 7 Tage zu spät | 1,8 % | 2,10 (2,03–2,18) | 58,6 % | 67,6 % |
+| über 7 Tage zu spät | 2,9 % | 1,70 (1,65–1,74) | 69,8 % | 79,3 % |
+
+- Verspätete Bestellungen sind 6,7 % der bewerteten Bestellungen, aber 36,8 % aller Ein-Stern-Bewertungen.
+- **Gegenprobe Lieferdauer:** Auch bei pünktlicher Lieferung sinkt die Bewertung mit der Dauer, aber langsam: von 4,42 (bis 7 Tage) auf 3,67 (über 30 Tage). Verspätete Lieferungen liegen in jeder Dauerklasse deutlich darunter, zum Beispiel bei 8 bis 14 Tagen 3,34 statt 4,32.
+- **Regression:** Bei gleicher Lieferdauer geht ein gebrochenes Versprechen mit 1,54 Sternen weniger einher. Eine Woche mehr Lieferdauer bei gleichem Pünktlichkeitsstatus mit 0,15 Sternen weniger. Rechnerisch entspricht ein gebrochenes Versprechen also rund 74 Tagen zusätzlicher Lieferdauer. Das Modell erklärt 16,9 % der Streuung der Bewertungen; der Rest hängt an anderen Dingen.
+- **Rangkorrelation:** Verzug gegen Bewertung -0,18; Lieferdauer gegen Bewertung bei pünktlichen Lieferungen -0,13.
+- **Robustheit:** Bei Bestellungen mit nur einer Position (86.061) beträgt der Abstand pünktlich gegen verspätet 2,08 Sterne. In jeder Region liegt er zwischen 1,93 und 2,07 Sternen. Bestellungen mit mehreren Verkäufern (1.258) sind fast nie verspätet (0,95 %), werden aber im Schnitt nur mit 2,86 Sternen bewertet gegenüber 4,17 bei einem Verkäufer. Es gibt also eindeutig weitere Treiber schlechter Bewertungen neben dem Verzug.
+
+**Fracht** (109.880 Positionen, 109.346 mit Koordinaten, Median-Entfernung 432 km)
+
+| Treiber | R² allein | Standardisierter Koeffizient im gemeinsamen Modell |
+|---|---|---|
+| Gewicht | 0,374 | 0,402 |
+| Volumen | 0,340 | 0,263 |
+| Entfernung | 0,154 | 0,398 |
+| alle drei | 0,555 | |
+
+- Gewicht erklärt allein am meisten. Im gemeinsamen Modell wiegen Gewicht und Entfernung etwa gleich schwer. Volumen verliert dort an Gewicht, weil es stark mit dem Gewicht zusammenhängt (Korrelation 0,81).
+- Frachtanteil am Warenwert nach Luftlinie: bis 100 km 11,8 %, 100–500 km 15,7 %, 500–1.000 km 17,7 %, 1.000–2.000 km 19,3 %, über 2.000 km 22,7 %.
+- Teuerste Route nach Ø Fracht: SP nach PB mit 43,31 BRL je Position. Höchster Frachtanteil: SP nach MA mit 31,2 % des Warenwerts. Neun der zehn teuersten Routen beginnen in SP und enden im Norden oder Nordosten.
+
+**Kunden und Wiederkauf** (93.104 Kunden mit zugestellter Bestellung im Fenster)
+
+- 2.005 Kunden (2,15 %) haben an mehr als einem Tag gekauft. 784 weitere hatten mehrere Bestellungen nur am selben Tag.
+- RFM: Die größte Umsatzgruppe sind ältere Einmalkäufer mit hohem Bestellwert: 22,7 % der Kunden, 43,0 % des Umsatzes. Alle Wiederkäufer zusammen sind 2,15 % der Kunden und 4,1 % des Umsatzes.
+- Wiederkauf innerhalb von 180 Tagen: 1.112 von 56.194 Kunden mit Erstkauf bis 4. März 2018 (1,98 %).
+- **Was Wiederkäufer unterscheidet:** Am deutlichsten die Kategorie der Erstbestellung (Chi-Quadrat p unter 0,001): fashion_bags_accessories 3,3 %, pet_shop 3,0 %, bed_bath_table 2,7 % gegenüber cool_stuff 1,0 %. Dann die Region (p = 0,002): Sudeste 2,14 % gegenüber Nordeste 1,47 %. Bewertung und Pünktlichkeit der Erstbestellung zeigen die erwartete Richtung (5 Sterne 2,12 % gegen 1 Stern 1,68 %; pünktlich 2,01 % gegen verspätet 1,55 %), sind aber nicht signifikant (p = 0,062 und 0,055).
+
+### Warum so entschieden
+
+- **Verzug gegen Versprechen als Leitgröße** wurde nicht nur gesetzt, sondern geprüft. Die Gegenprobe zeigt ehrlich, dass auch die Dauer eine Rolle spielt. Der Verzug wiegt aber rund zehnmal schwerer als eine zusätzliche Woche Lieferzeit.
+- **Spearman und Mann-Whitney statt Pearson und t-Test**: Bewertungen sind Stufen von 1 bis 5, keine metrischen Werte. Rangverfahren setzen keine Normalverteilung voraus. Für die Regression wird die Bewertung trotzdem wie eine Zahl behandelt, weil das Ergebnis dann in "Sternen" lesbar ist; das ist eine bewusste Vereinfachung.
+- **Robustheitsprüfungen**: Sie können einen Störfaktor nicht ausschließen, aber zeigen, ob der Befund an einer naheliegenden Teilgruppe hängt. Er hängt weder an Mehrfachbestellungen noch an einer Region.
+- **Kausalität**: Nirgends wird behauptet, dass Verzug schlechte Bewertungen verursacht. Defekte Ware, falsche Produktbeschreibung oder ein insgesamt nachlässiger Verkäufer können beides erklären.
+- **Frachtanalyse im Lieferskript**: Fracht und Lieferzeit hängen an derselben Geografie (Verkäufer im Südosten, Kunden im ganzen Land). Deshalb stehen beide Analysen in einem Skript, statt ein zusätzliches Skript einzuführen.
+- **Entfernung als Luftlinie** zwischen den Median-Koordinaten der PLZ-Präfixe. Die echte Straßenstrecke ist länger, die Reihenfolge der Entfernungen bleibt aber erhalten.
+- **Routen erst ab 200 Positionen**, damit einzelne teure Sendungen kein Ranking bestimmen.
+- **Wiederkauf-Definition**: späterer Kauftag innerhalb von 180 Tagen. Gleicher Tag zählt nicht, weil das ein aufgeteilter Warenkorb ist. Das feste Fenster gibt jedem Kunden gleich viel Zeit; deshalb zählen nur Erstkäufe bis 4. März 2018.
+- **F-Score als feste Klassen** (1, 2, 3+ Kauftage), weil über 97 % der Kunden genau einen Kauftag haben.
+- **Hauptkategorie einer Bestellung** = Kategorie der teuersten Position.
+
+**Abnahmekriterium AP5** (Kernbefund steht als Zahl): erfüllt. Pünktlich 4,29 Sterne, über 7 Tage Verzug 1,70 Sterne. Bei gleicher Lieferdauer geht ein gebrochenes Versprechen mit 1,54 Sternen weniger einher.

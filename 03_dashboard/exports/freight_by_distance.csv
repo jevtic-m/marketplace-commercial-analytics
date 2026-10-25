@@ -1,0 +1,6 @@
+distance_band,n_items,avg_freight_brl,freight_share_pct
+bis 100 km,20413,11.75,11.82
+100 bis 500 km,42311,18.34,15.71
+500 bis 1.000 km,29435,21.08,17.69
+1.000 bis 2.000 km,10979,29.24,19.33
+über 2.000 km,6208,35.92,22.71

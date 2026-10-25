@@ -1,0 +1,7 @@
+segment,n_customers,revenue_brl,avg_revenue_per_customer,avg_recency_days,customer_share_pct,revenue_share_pct
+"Einmalkäufer älter, hoher Wert",21134,5664753.62,268.04,336.35,22.7,42.98
+"Einmalkäufer neu, hoher Wert",14537,3886726.55,267.37,94.01,15.61,29.49
+Einmalkäufer älter,33779,1882699.65,55.74,338.11,36.28,14.28
+Einmalkäufer neu,21649,1202557.99,55.55,91.93,23.25,9.12
+"Wiederkäufer, aktiv",1056,291615.61,276.15,89.26,1.13,2.21
+"Wiederkäufer, länger inaktiv",949,252673.71,266.25,309.46,1.02,1.92

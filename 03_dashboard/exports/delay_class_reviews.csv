@@ -1,0 +1,5 @@
+delay_class,n_orders,order_share_pct,avg_review,ci95_low,ci95_high,one_star_pct,one_or_two_star_pct,five_star_pct
+pünktlich,89182,93.326,4.291,4.284,4.299,6.599,9.249,62.275
+1 bis 3 Tage zu spät,1851,1.937,3.291,3.218,3.363,25.122,32.145,33.171
+4 bis 7 Tage zu spät,1748,1.829,2.105,2.034,2.176,58.581,67.62,14.13
+über 7 Tage zu spät,2779,2.908,1.696,1.65,1.742,69.845,79.273,7.017

@@ -39,13 +39,13 @@ Sie bleiben im Modell, aber nicht in der Lieferzeit- und Bewertungsanalyse, weil
 ## AP4 / AP5 — Analysen
 
 **Was ist der Unterschied zwischen Lieferzeit und Lieferverzug, und welcher ist für die Zufriedenheit relevant?**
-Lieferzeit ist die Dauer vom Kauf bis zur Zustellung, im Schnitt 12,6 Tage. Lieferverzug ist die Differenz zwischen tatsächlichem und versprochenem Zustelldatum, also ob die Zusage gehalten wurde. Für die Bewertung ist der Verzug die stärkere Größe: Pünktliche Lieferungen bekommen 4,29 Sterne, mehr als eine Woche Verzug nur 1,70 Sterne. [Gegenprobe zur absoluten Lieferzeit folgt in AP5.]
+Lieferzeit ist die Dauer vom Kauf bis zur Zustellung, im Schnitt 12,6 Tage. Lieferverzug ist die Differenz zwischen tatsächlichem und versprochenem Zustelldatum, also ob die Zusage gehalten wurde. Für die Bewertung ist der Verzug die stärkere Größe: Pünktliche Lieferungen bekommen 4,29 Sterne, mehr als eine Woche Verzug nur 1,70 Sterne. Die Gegenprobe zeigt, dass auch die Dauer zählt, aber viel weniger: Bei gleicher Dauer geht ein gebrochenes Versprechen mit 1,54 Sternen weniger einher, eine Woche längere Lieferung nur mit 0,15 Sternen.
 
 **Wie hast du die Lieferzeit zerlegt, und warum?**
 In drei Abschnitte entlang der Zeitstempel: Zahlungsfreigabe (0,4 Tage), Bearbeitung beim Verkäufer bis zur Übergabe an die Logistik (2,8 Tage) und Transport bis zum Kunden (9,4 Tage). Die Zerlegung zeigt, wer welchen Hebel hat: Die Bearbeitung ist in allen Regionen gleich, der Unterschied zwischen 7,6 Tagen Transport im Sudeste und 19,3 Tagen im Norte liegt bei der Logistik, nicht bei den Verkäufern.
 
 **Dein Befund zeigt: späte Lieferung, schlechte Bewertung. Ist das kausal?**
-[folgt in AP5]
+Nein, nachgewiesen ist ein Zusammenhang. Er ist stark und robust: Er hält bei Bestellungen mit nur einer Position (2,08 Sterne Abstand) und in jeder Region (1,93 bis 2,07 Sterne). Für einen Kausalnachweis bräuchte es aber ein Experiment oder eine Situation, in der Verzug zufällig entsteht, etwa ein Streik beim Logistiker, und das gibt der Datensatz nicht her.
 
 **Welche Störfaktoren könnten beides erklären?**
-[folgt in AP5]
+Ein nachlässiger Verkäufer verschickt spät und packt schlecht, Kunden in entlegenen Regionen bekommen längere Wege und schlechteren Service, und defekte oder falsch beschriebene Ware führt zu Rücksendungen, die als Verzug erscheinen. Dass es weitere Treiber gibt, zeigen die Daten selbst: Bestellungen mit mehreren Verkäufern sind fast nie verspätet (0,95 %), werden aber im Schnitt nur mit 2,86 Sternen bewertet.
