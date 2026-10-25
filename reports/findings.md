@@ -65,7 +65,7 @@ Kontrollsummen: Warenumsatz in `fact_orders` = 13.591.643,70 BRL = Summe `price`
 
 Die drei Pflichtprüfungen: `fact_orders` = `orders` = 99.441 Zeilen; Wiederkaufrate 2.997 von 96.096 = 3,12 %; Validierung läuft fehlerfrei.
 
-Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht von -147 bis +188 Tagen, Gesamtlaufzeit bis 209,6 Tage. 1.359 Bestellungen haben eine negative Bearbeitungszeit (Übergabe an Logistik vor Zahlungsfreigabe), vermutlich ein Prozessartefakt beim Buchen der Freigabe. Diese Fälle werden in AP3 gezählt und in den Lieferzeitanalysen nicht bereinigt, weil sie die Reihenfolge der Ereignisse, nicht die Zustellung betreffen.
+Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht von -147 bis +188 Tagen, Gesamtlaufzeit bis 209,6 Tage. 1.359 Bestellungen haben eine negative Bearbeitungszeit (Übergabe an Logistik vor Zahlungsfreigabe), vermutlich ein Prozessartefakt beim Buchen der Freigabe. Wie damit umgegangen wird, steht in AP3.
 
 ### Warum so entschieden
 
@@ -82,3 +82,41 @@ Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht vo
 - **first_sale_date** je Verkäufer aus allen Bestellungen unabhängig vom Status, weil es um den Zeitpunkt des Aktivwerdens geht.
 
 **Abnahmekriterium AP2** (`fact_orders` steht, Fan-out nachweislich gelöst): erfüllt. Zeilenzahl 99.441 = `orders`, Umsatz- und Zahlungssumme stimmen auf den Cent mit den Rohtabellen überein. Der explizite Fan-out-Nachweis (naiver Join gegen Aggregation) folgt als Abfrage in AP3.
+
+---
+
+## AP3 — Datenqualität: Validierungen, Zahlungsabstimmung, Randzeiträume
+
+### Was wurde gemacht
+
+`01_sql/02_validation.sql` hat jetzt einen Teil B, der auf dem Star-Schema läuft. Er prüft die Verteilung der Bestellstatus, den Abgleich von Status und Zustelldatum, die Zahlungsabstimmung, den Fan-out beim naiven Join, die Ränder des Zeitraums, die Reihenfolge der Zeitstempel und die Größe der Analysebasis. Danach wurde die Datenbank aus den Rohdaten komplett neu gebaut, und die drei Pflichtprüfungen liefen erneut durch.
+
+### Was kam heraus
+
+| Prüfung | Ergebnis |
+|---|---|
+| Status `delivered` | 96.478 von 99.441 Bestellungen (97,02 %) |
+| `canceled` + `unavailable` | 625 + 609 = 1.234 (1,24 %), im Analysefenster 1.182 (1,19 %) |
+| Status und Zustelldatum widersprüchlich | 8 `delivered` ohne Datum, 6 mit Datum ohne `delivered` |
+| Zahlungsabweichung über 1 % | 254 von 98.665 Bestellungen (0,26 %), 236 zahlen mehr, 18 weniger |
+| Gesamtdifferenz Zahlung gegen Ware plus Fracht | +2.870,39 BRL |
+| Abweichungen nach Hauptzahlart | 243 Kreditkarte, 7 Debitkarte, 4 Gutschein, 0 Boleto |
+| Naiver Dreifach-Join | 117.601 Zeilen statt 99.441; Zahlbetrag 20.308.134,71 statt 16.008.872,12 BRL (+26,9 %); Warenumsatz 14.209.115,34 statt 13.591.643,70 BRL (+4,5 %) |
+| `fact_orders` | trifft beide Summen auf den Cent |
+| Ränder | 329 Bestellungen vor Januar 2017 (324 davon im Oktober 2016), 20 nach August 2018 |
+| Im Fenster | 99.092 Bestellungen (99,65 %), im Schnitt 4.955 je Monat |
+| Zeitstempel-Reihenfolge | 1.359 Übergaben an Logistik vor Zahlungsfreigabe (Median -0,74 Tage, 450 unter -1 Tag), 23 Zustellungen vor Übergabe, 0 Zustellungen vor Kauf |
+| Basis Lieferanalysen im Fenster | 96.203 zugestellte Bestellungen mit Datum, 95.560 davon mit Bewertung |
+| Verspätet im Fenster | 6.531 (6,79 %) |
+
+Pflichtprüfungen nach Neuaufbau: `fact_orders` = `orders` = 99.441 Zeilen, Wiederkaufrate 3,12 % (größer null), `02_validation.sql` läuft fehlerfrei. Alle drei bestanden.
+
+### Warum so entschieden
+
+- **Bestellstatus**: Lieferzeit- und Bewertungsanalysen nutzen nur `delivered` mit gefülltem Zustelldatum (96.470 Bestellungen, im Fenster 96.203). Die doppelte Bedingung ist nötig, weil Status und Datum in 14 Fällen nicht zusammenpassen. `canceled` und `unavailable` werden als Stornoquote getrennt ausgewiesen. Umsatz wird als realisierter Umsatz der zugestellten Bestellungen gerechnet; das sind 97,34 % des Warenumsatzes im Fenster, die Wahl verschiebt also kaum etwas.
+- **Bestellungen, die nie zugestellt wurden**: Sie bleiben in `fact_orders`, fließen aber nicht in Lieferzeit oder Verzug ein, weil es keine Zustellung gibt, die man messen könnte. Sie tragen auffällig schlechte Bewertungen (zum Beispiel `unavailable` im Schnitt 1,53 Sterne gegenüber 4,16 bei `delivered`). Die Stornoquote wird deshalb als eigene Verkäuferkennzahl geführt.
+- **Zahlungsabstimmung**: Die Abweichungen sind selten (0,26 %) und fast nur bei Kreditkarte, was zu Ratenzuschlägen passt. Gutscheine erklären sie nicht: Von 3.766 Bestellungen mit Gutscheinanteil weichen nur 6 ab, weil Gutscheine als eigene Zahlungszeile mitgezählt sind. Das bestätigt die Umsatzdefinition: Umsatz ist `price`, Fracht getrennt, der Zahlbetrag nur für Zahlungsanalysen.
+- **Analysefenster Januar 2017 bis August 2018**: Vor 2017 gibt es nur 329 Bestellungen, fast alle in einem einzigen Monat, im November 2016 gar keine. Nach August 2018 gibt es nur 20 Bestellungen, weil der Datenabzug dort endet. Beide Ränder würden in Zeitreihen ein Nichts am Anfang und einen künstlichen Absturz am Ende zeigen. Das Fenster behält 99,65 % aller Bestellungen.
+- **Negative Bearbeitungszeiten**: Die Werte bleiben in `fact_orders` stehen, damit nichts still verändert wird. Für die Zerlegung der Lieferzeit und für die Bearbeitungszeit je Verkäufer zählen aber nur Bestellungen, bei denen Bearbeitung und Transport nicht negativ sind. Eine negative Dauer ist unmöglich und würde Durchschnitte verfälschen. Gesamtlaufzeit und Verzug sind nicht betroffen, weil keine Zustellung vor dem Kauf liegt.
+
+**Abnahmekriterium AP3** (Validierungsabfragen laufen, Ergebnisse dokumentiert): erfüllt. `02_validation.sql` läuft mit 23 Anweisungen fehlerfrei, jede Abfrage trägt ihr Ergebnis als Kommentar, die Zahlen stehen oben in der Tabelle.

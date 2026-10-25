@@ -42,7 +42,7 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 
 1. Neun Rohtabellen in DuckDB geladen und Schlüsselbeziehungen geprüft (`01_sql/00_load.sql`, `02_validation.sql` Teil A)
 2. Star-Schema mit vier Dimensionen (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`) und zwei Faktentabellen (`fact_order_items` auf Positionsebene, `fact_orders` auf Bestellebene, vorverdichtet gegen Fan-out) in `01_sql/01_schema.sql`
-3. Datenqualitätsprüfungen inkl. Zahlungsabstimmung und Fan-out-Kontrolle [folgt in AP3]
+3. Datenqualitätsprüfungen inkl. Zahlungsabstimmung und Fan-out-Kontrolle (`01_sql/02_validation.sql`, Teil A und B)
 4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten [folgt in AP4]
 5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen [folgt in AP4/AP5]
 6. Verkäufer-Scorecard und Cutoff-Analyse [folgt in AP6]
@@ -59,6 +59,11 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 - Bei 547 Bestellungen mit mehreren Bewertungen zählt die jüngste Bewertung.
 - Verzug gegen Lieferversprechen wird in Kalendertagen gerechnet (Zustelldatum minus versprochenes Datum); positiv heißt zu spät.
 - Geolocation wird vor dem Join auf den Median je PLZ-Präfix verdichtet, 42 Koordinaten außerhalb Brasiliens werden verworfen.
+- **Analysefenster Januar 2017 bis August 2018.** Vor 2017 liegen nur 329 Bestellungen (324 davon im Oktober 2016, im November 2016 keine), nach August 2018 nur 20, weil der Datenabzug dort endet. Beide Ränder würden Zeitreihen verzerren. Das Fenster behält 99.092 Bestellungen (99,65 %).
+- **Bestellstatus.** Lieferzeit und Bewertung nur für `delivered` mit gefülltem Zustelldatum (96.203 Bestellungen im Fenster). `canceled` und `unavailable` laufen getrennt als Stornoquote (1,19 % im Fenster).
+- **Zahlungsabstimmung.** 254 von 98.665 Bestellungen (0,26 %) weichen beim Zahlbetrag um mehr als 1 % von Warenwert plus Fracht ab, fast alle mit Kreditkarte.
+- **Fan-out-Nachweis.** Der naive Join von Bestellungen, Positionen und Zahlungen ergibt 117.601 Zeilen statt 99.441 und überhöht den Zahlbetrag um 26,9 %.
+- **Zeitstempel.** Bei 1.359 Bestellungen liegt die Übergabe an die Logistik vor der Zahlungsfreigabe. Für die Lieferzeit-Zerlegung zählen nur Bestellungen mit nicht negativen Teilzeiten.
 - Weitere Annahmen folgen mit den jeweiligen Arbeitspaketen.
 
 ## Reproduktion

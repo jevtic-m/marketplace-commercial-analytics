@@ -204,3 +204,181 @@ SELECT DISTINCT p.product_category_name AS untranslated_category
 FROM products p
 LEFT JOIN category_translation t USING (product_category_name)
 WHERE p.product_category_name IS NOT NULL AND t.product_category_name IS NULL;
+
+
+-- ============================================================================
+-- TEIL B: Star-Schema, Bestellstatus, Zahlungsabstimmung, Fan-out, Zeitfenster
+-- (braucht 01_schema.sql)
+-- ============================================================================
+
+-- B1. Verteilung von order_status, Anteil delivered
+-- Frage: Wie viele Bestellungen wurden tatsächlich zugestellt?
+-- Ergebnis: 96.478 von 99.441 (97,02 %) sind 'delivered'. 'canceled' (625) und
+--   'unavailable' (609) zusammen 1,24 %. Der Rest (shipped, invoiced,
+--   processing, created, approved) sind offene Bestellungen zum Datenstand.
+SELECT order_status,
+       COUNT(*) AS n_orders,
+       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS pct_orders,
+       ROUND(AVG(review_score), 2) AS avg_review_score
+FROM fact_orders
+GROUP BY order_status
+ORDER BY n_orders DESC;
+
+
+-- B2. Status gegen Zustelldatum
+-- Frage: Passt der Status zum Zustelldatum?
+-- Ergebnis: 8 Bestellungen sind 'delivered' ohne Zustelldatum, 6 haben ein
+--   Zustelldatum ohne Status 'delivered'. Deshalb gilt für alle Lieferzeit-
+--   und Bewertungsanalysen die doppelte Bedingung: Status 'delivered' UND
+--   Zustelldatum gefüllt. Basis: 96.470 Bestellungen.
+SELECT COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NULL)      AS n_delivered_without_date,
+       COUNT(*) FILTER (WHERE order_status <> 'delivered' AND days_total IS NOT NULL) AS n_date_without_delivered,
+       COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NOT NULL)  AS n_delivery_analysis_base
+FROM fact_orders;
+
+
+-- B3. Zahlungsabstimmung: paid_total gegen item_revenue + freight_total
+-- Frage: Bei wie vielen Bestellungen weicht der Zahlbetrag um mehr als 1 % vom
+--   Warenwert plus Fracht ab?
+-- Ergebnis: 254 von 98.665 Bestellungen (0,26 %) mit beiden Beträgen weichen
+--   um mehr als 1 % ab, davon 236 nach oben und 18 nach unten. Über alle
+--   Bestellungen liegt der Zahlbetrag um 2.870,39 BRL über Warenwert plus
+--   Fracht. 243 der 254 Abweichungen sind Kreditkartenbestellungen (vermutlich
+--   Ratenzuschläge). Gutscheine erklären die Abweichung NICHT: von 3.766
+--   Bestellungen mit Gutscheinanteil weichen nur 6 ab, weil Gutscheine als
+--   eigene Zahlungszeile mitgezählt werden. Fazit: Umsatz = price,
+--   Zahlbetrag nur für Zahlungsanalysen.
+SELECT COUNT(*) AS n_orders_with_both_amounts,
+       COUNT(*) FILTER (WHERE ABS(paid_total - (item_revenue + freight_total))
+                              / (item_revenue + freight_total) > 0.01)   AS n_deviation_over_1pct,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE ABS(paid_total - (item_revenue + freight_total))
+                                            / (item_revenue + freight_total) > 0.01) / COUNT(*), 2) AS pct_deviation_over_1pct,
+       COUNT(*) FILTER (WHERE paid_total > (item_revenue + freight_total) * 1.01) AS n_paid_more,
+       COUNT(*) FILTER (WHERE paid_total < (item_revenue + freight_total) * 0.99) AS n_paid_less,
+       ROUND(SUM(paid_total) - SUM(item_revenue + freight_total), 2)              AS total_difference_brl
+FROM fact_orders
+WHERE item_revenue IS NOT NULL
+  AND paid_total IS NOT NULL;
+
+-- Abweichungen nach Hauptzahlart
+SELECT payment_type_main,
+       COUNT(*) AS n_orders,
+       COUNT(*) FILTER (WHERE ABS(paid_total - (item_revenue + freight_total))
+                              / (item_revenue + freight_total) > 0.01) AS n_deviation_over_1pct
+FROM fact_orders
+WHERE item_revenue IS NOT NULL
+  AND paid_total IS NOT NULL
+GROUP BY payment_type_main
+ORDER BY n_orders DESC;
+
+-- Abweichungen bei Bestellungen mit Gutscheinanteil
+SELECT COUNT(*) FILTER (WHERE has_voucher)                 AS n_orders_with_voucher,
+       COUNT(*) FILTER (WHERE has_voucher AND deviates)    AS n_voucher_orders_deviating,
+       COUNT(*) FILTER (WHERE NOT has_voucher AND deviates) AS n_other_orders_deviating
+FROM (
+    SELECT f.order_id,
+           ABS(f.paid_total - (f.item_revenue + f.freight_total))
+               / (f.item_revenue + f.freight_total) > 0.01 AS deviates,
+           EXISTS (SELECT 1 FROM order_payments p
+                   WHERE p.order_id = f.order_id AND p.payment_type = 'voucher') AS has_voucher
+    FROM fact_orders f
+    WHERE f.item_revenue IS NOT NULL AND f.paid_total IS NOT NULL
+);
+
+
+-- B4. Nachweis des Fan-out-Problems
+-- Frage: Was passiert beim naiven Dreifach-Join orders x order_items x order_payments?
+-- Ergebnis: Der naive Join liefert 117.601 Zeilen statt 99.441 Bestellungen.
+--   Die Summe über payment_value wird 20.308.134,71 BRL statt 16.008.872,12
+--   (+26,9 %), die Summe über price 14.209.115,34 statt 13.591.643,70 (+4,5 %).
+--   Die vorverdichtete fact_orders trifft beide Summen auf den Cent.
+SELECT 'naiver Dreifach-Join' AS method,
+       COUNT(*)                              AS n_rows,
+       ROUND(SUM(p.payment_value), 2)        AS sum_payment_value,
+       ROUND(SUM(i.price), 2)                AS sum_price
+FROM orders o
+JOIN order_items i USING (order_id)
+JOIN order_payments p USING (order_id)
+UNION ALL
+SELECT 'fact_orders (vorverdichtet)',
+       COUNT(*),
+       ROUND(SUM(paid_total), 2),
+       ROUND(SUM(item_revenue), 2)
+FROM fact_orders
+UNION ALL
+SELECT 'Rohtabellen einzeln (Referenz)',
+       (SELECT COUNT(*) FROM orders),
+       (SELECT ROUND(SUM(payment_value), 2) FROM order_payments),
+       (SELECT ROUND(SUM(price), 2) FROM order_items);
+
+
+-- B5. Ränder des Zeitraums
+-- Frage: Wie viele Bestellungen liegen außerhalb des Analysefensters
+--   Januar 2017 bis August 2018?
+-- Ergebnis: 329 Bestellungen vor dem Fenster (Sep 2016 bis Dez 2016, davon 324
+--   allein im Oktober 2016) und 20 danach (Sep/Okt 2018). Im Fenster liegen
+--   99.092 Bestellungen (99,65 %), im Schnitt 4.955 je Monat. Die Ränder
+--   würden in Zeitreihen ein leeres Jahresende 2016 und einen künstlichen
+--   Absturz im September 2018 zeigen.
+SELECT LEFT(purchase_date_id::VARCHAR, 6) AS year_month,
+       COUNT(*) AS n_orders,
+       CASE WHEN purchase_date_id BETWEEN 20170101 AND 20180831
+            THEN 'im Fenster' ELSE 'Rand' END AS window_flag
+FROM fact_orders
+GROUP BY year_month, window_flag
+ORDER BY year_month;
+
+SELECT COUNT(*) FILTER (WHERE purchase_date_id < 20170101)                       AS n_before_window,
+       COUNT(*) FILTER (WHERE purchase_date_id BETWEEN 20170101 AND 20180831)    AS n_in_window,
+       COUNT(*) FILTER (WHERE purchase_date_id > 20180831)                       AS n_after_window,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE purchase_date_id BETWEEN 20170101 AND 20180831) / COUNT(*), 2) AS pct_in_window
+FROM fact_orders;
+
+
+-- B6. Reihenfolge der Zeitstempel
+-- Frage: Kommen die Ereignisse immer in der erwarteten Reihenfolge?
+-- Ergebnis: Bei 1.359 Bestellungen liegt die Übergabe an die Logistik vor der
+--   Zahlungsfreigabe (negative Bearbeitungszeit, Median -0,74 Tage, 450 Fälle
+--   unter -1 Tag, Minimum -171 Tage; in fact_orders nach Rundung auf zwei
+--   Nachkommastellen 1.334 Fälle), bei 23 die Zustellung vor der Übergabe.
+--   Kein Fall von Zustellung vor Kauf. Gesamtlaufzeit und Verzug gegen
+--   Versprechen sind davon also nicht betroffen.
+-- ENTSCHEIDUNG: Die Werte bleiben in fact_orders unverändert stehen. Für die
+--   Lieferzeit-Zerlegung (Bearbeitung plus Transport) und für die
+--   Bearbeitungszeit je Verkäufer werden nur Bestellungen mit plausibler
+--   Reihenfolge verwendet (beide Teilzeiten >= 0). Negative Dauern sind
+--   physikalisch unmöglich und würden Durchschnitte nach unten ziehen.
+SELECT COUNT(*) FILTER (WHERE order_approved_at < order_purchase_timestamp)                    AS n_approved_before_purchase,
+       COUNT(*) FILTER (WHERE order_delivered_carrier_date < order_approved_at)                AS n_carrier_before_approval,
+       COUNT(*) FILTER (WHERE order_delivered_customer_date < order_delivered_carrier_date)    AS n_delivered_before_carrier,
+       COUNT(*) FILTER (WHERE order_delivered_customer_date < order_purchase_timestamp)        AS n_delivered_before_purchase
+FROM orders;
+
+-- Verteilung der negativen Bearbeitungszeiten
+SELECT COUNT(*)                                            AS n_negative_handling,
+       COUNT(*) FILTER (WHERE days_seller_handling < -1)   AS n_below_minus_1_day,
+       MEDIAN(days_seller_handling)                        AS median_days,
+       MIN(days_seller_handling)                           AS min_days
+FROM fact_orders
+WHERE days_seller_handling < 0;
+
+
+-- B7. Basis für die Analysen im Fenster
+-- Frage: Wie groß ist die Datenbasis für Lieferzeit- und Bewertungsanalysen?
+-- Ergebnis: 96.203 zugestellte Bestellungen mit Zustelldatum im Fenster,
+--   davon 95.560 mit Bewertung. 6.531 davon (6,79 %) kamen nach dem
+--   versprochenen Datum an. Stornoquote im Fenster (canceled + unavailable):
+--   1.182 Bestellungen (1,19 %). 97,34 % des Warenumsatzes im Fenster
+--   entfallen auf zugestellte Bestellungen.
+SELECT COUNT(*)                                                     AS n_orders_in_window,
+       COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NOT NULL) AS n_delivered_with_date,
+       COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NOT NULL
+                          AND review_score IS NOT NULL)             AS n_delivered_with_review,
+       COUNT(*) FILTER (WHERE order_status = 'delivered' AND is_late) AS n_late,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE order_status = 'delivered' AND is_late)
+             / COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NOT NULL), 2) AS pct_late,
+       COUNT(*) FILTER (WHERE order_status IN ('canceled', 'unavailable')) AS n_canceled_or_unavailable,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE order_status IN ('canceled', 'unavailable')) / COUNT(*), 2) AS pct_canceled_or_unavailable,
+       ROUND(100.0 * SUM(item_revenue) FILTER (WHERE order_status = 'delivered') / SUM(item_revenue), 2) AS pct_revenue_delivered
+FROM fact_orders
+WHERE purchase_date_id BETWEEN 20170101 AND 20180831;
