@@ -382,3 +382,15 @@ SELECT COUNT(*)                                                     AS n_orders_
        ROUND(100.0 * SUM(item_revenue) FILTER (WHERE order_status = 'delivered') / SUM(item_revenue), 2) AS pct_revenue_delivered
 FROM fact_orders
 WHERE purchase_date_id BETWEEN 20170101 AND 20180831;
+
+-- B8. Bundesstaat der Bestellung gegen Bundesstaat in dim_customer
+-- Frage: Wie viele Bestellungen würden über dim_customer (jüngste Adresse)
+--   einem anderen Bundesstaat zugeordnet als über ihre eigene Lieferadresse?
+-- Ergebnis: 43 von 99.441 Bestellungen (0,043 %). Die Zuordnung über
+--   dim_customer ist für Regionalanalysen also praktisch verlustfrei.
+SELECT COUNT(*)                                                    AS n_orders,
+       COUNT(*) FILTER (WHERE c.customer_state <> dc.state)        AS n_orders_other_state,
+       ROUND(100.0 * COUNT(*) FILTER (WHERE c.customer_state <> dc.state) / COUNT(*), 3) AS pct_orders_other_state
+FROM orders o
+JOIN customers c     USING (customer_id)
+JOIN dim_customer dc ON dc.customer_unique_id = c.customer_unique_id;

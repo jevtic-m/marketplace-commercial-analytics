@@ -43,13 +43,37 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 1. Neun Rohtabellen in DuckDB geladen und Schlüsselbeziehungen geprüft (`01_sql/00_load.sql`, `02_validation.sql` Teil A)
 2. Star-Schema mit vier Dimensionen (`dim_date`, `dim_customer`, `dim_seller`, `dim_product`) und zwei Faktentabellen (`fact_order_items` auf Positionsebene, `fact_orders` auf Bestellebene, vorverdichtet gegen Fan-out) in `01_sql/01_schema.sql`
 3. Datenqualitätsprüfungen inkl. Zahlungsabstimmung und Fan-out-Kontrolle (`01_sql/02_validation.sql`, Teil A und B)
-4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten [folgt in AP4]
-5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen [folgt in AP4/AP5]
+4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten (`01_sql/03_commercial.sql`)
+5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen, Fracht (`01_sql/04_operations.sql`) [Vertiefung in Python folgt in AP5]
 6. Verkäufer-Scorecard und Cutoff-Analyse [folgt in AP6]
 
 ## Ergebnisse
 
-[folgt]
+### Kommerz (`01_sql/03_commercial.sql`)
+
+- **Wachstum.** 13,18 Mio. BRL realisierter Warenumsatz im Analysefenster aus 96.211 zugestellten Bestellungen. Januar bis August 2018 liegt 141,1 % über dem Vorjahreszeitraum, Spitze im November 2017 mit 987.765 BRL.
+- **Kategorien.** 18 von 74 Kategorien machen 81,3 % des Umsatzes. Spitzenreiter ist health_beauty mit 9,33 %.
+- **Regionen.** Der Sudeste trägt 68,6 % der Bestellungen bei dem niedrigsten Bestellwert (130,61 BRL). Im Norte liegt der Bestellwert bei 181,96 BRL, die Fracht aber bei 22,7 % des Warenwerts statt 15,2 %.
+- **Zahlung.** Kreditkarte ist Hauptzahlart bei 75,44 % der Bestellungen. Die Ratenzahl steigt mit dem Bestellwert von 2,08 auf 7,29.
+
+### Operations (`01_sql/04_operations.sql`)
+
+- **Lieferzeit.** Im Schnitt 12,6 Tage: 0,4 Tage Freigabe, 2,8 Tage Bearbeitung beim Verkäufer, 9,4 Tage Transport. Die Bearbeitung ist in allen Regionen gleich, der Transport reicht von 7,6 Tagen im Sudeste bis 19,3 Tagen im Norte.
+- **Verzug.** 6,79 % der Zustellungen kommen nach dem versprochenen Datum, im Nordeste 12,76 %. Ausreißer-Monate sind November 2017 und Februar/März 2018 mit bis zu 18,96 %.
+- **Verzug und Bewertung.** Je größer der Verzug, desto schlechter die Bewertung:
+
+| Verzug gegen Versprechen | Anteil | Ø Bewertung | Ein-Stern-Anteil |
+|---|---|---|---|
+| pünktlich | 93,33 % | 4,29 | 6,6 % |
+| 1 bis 3 Tage | 1,94 % | 3,29 | 25,1 % |
+| 4 bis 7 Tage | 1,83 % | 2,10 | 58,6 % |
+| über 7 Tage | 2,91 % | 1,70 | 69,8 % |
+
+Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
+
+- **Fracht.** Den höchsten Frachtanteil hat electronics mit 29,5 % des Warenwerts. Über Regionsgrenzen steigt der Frachtanteil von 13,0 % auf 18,8 %, und 83,7 % aller Positionen kommen von Verkäufern aus dem Sudeste.
+
+[Weitere Ergebnisse folgen mit AP5 und AP6.]
 
 ## Annahmen und Limitationen
 
@@ -64,6 +88,9 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 - **Zahlungsabstimmung.** 254 von 98.665 Bestellungen (0,26 %) weichen beim Zahlbetrag um mehr als 1 % von Warenwert plus Fracht ab, fast alle mit Kreditkarte.
 - **Fan-out-Nachweis.** Der naive Join von Bestellungen, Positionen und Zahlungen ergibt 117.601 Zeilen statt 99.441 und überhöht den Zahlbetrag um 26,9 %.
 - **Zeitstempel.** Bei 1.359 Bestellungen liegt die Übergabe an die Logistik vor der Zahlungsfreigabe. Für die Lieferzeit-Zerlegung zählen nur Bestellungen mit nicht negativen Teilzeiten.
+- **Realisierter Umsatz.** Umsatzanalysen zählen nur zugestellte Bestellungen. Sie tragen 97,34 % des Warenumsatzes im Fenster.
+- **Leitgröße Verzug.** Maßgeblich für die Kundenzufriedenheit ist der Verzug gegen das versprochene Datum, nicht die absolute Lieferzeit.
+- **Regionen.** Bundesstaat und Region des Kunden kommen aus der Kundendimension (Adresse der jüngsten Bestellung). Das ordnet nur 43 Bestellungen (0,043 %) anders zu als ihre eigene Lieferadresse.
 - Weitere Annahmen folgen mit den jeweiligen Arbeitspaketen.
 
 ## Reproduktion
@@ -77,6 +104,11 @@ python 02_python/run_sql.py 01_sql/02_validation.sql
 ```
 
 `01_data_prep.py` lädt die CSVs (`00_load.sql`), baut das Star-Schema (`01_schema.sql`) und prüft: `fact_orders` = `orders` (99.441 Zeilen), Wiederkaufrate über `customer_unique_id` größer null (3,12 %), Validierung läuft fehlerfrei.
+
+```bash
+python 02_python/run_sql.py 01_sql/03_commercial.sql
+python 02_python/run_sql.py 01_sql/04_operations.sql
+```
 
 Weitere Schritte folgen mit den nächsten Arbeitspaketen.
 

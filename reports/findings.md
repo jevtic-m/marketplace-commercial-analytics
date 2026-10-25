@@ -120,3 +120,66 @@ Pflichtprüfungen nach Neuaufbau: `fact_orders` = `orders` = 99.441 Zeilen, Wied
 - **Negative Bearbeitungszeiten**: Die Werte bleiben in `fact_orders` stehen, damit nichts still verändert wird. Für die Zerlegung der Lieferzeit und für die Bearbeitungszeit je Verkäufer zählen aber nur Bestellungen, bei denen Bearbeitung und Transport nicht negativ sind. Eine negative Dauer ist unmöglich und würde Durchschnitte verfälschen. Gesamtlaufzeit und Verzug sind nicht betroffen, weil keine Zustellung vor dem Kauf liegt.
 
 **Abnahmekriterium AP3** (Validierungsabfragen laufen, Ergebnisse dokumentiert): erfüllt. `02_validation.sql` läuft mit 23 Anweisungen fehlerfrei, jede Abfrage trägt ihr Ergebnis als Kommentar, die Zahlen stehen oben in der Tabelle.
+
+---
+
+## AP4 — SQL-Abfragen 5 bis 12: Kommerz und Operations
+
+### Was wurde gemacht
+
+- `01_sql/03_commercial.sql` enthält die Abfragen 5 bis 8: Umsatz je Monat mit Vormonatswachstum über `LAG`, Pareto der Kategorien mit kumuliertem Anteil über `SUM() OVER (ORDER BY ...)`, Bestellwert je Bundesstaat und Region, Zahlungsverhalten.
+- `01_sql/04_operations.sql` enthält die Abfragen 9 bis 12: Zerlegung der Lieferzeit, Verspätungsquote je Monat, Region und Bundesstaat, Bewertung nach Verzugsklasse, Frachtanteil je Kategorie und Entfernungsklasse.
+- Jede Abfrage hat einen Kommentarblock mit der Frage und dem Ergebnis in Zahlen. Alle Abfragen nutzen das Analysefenster Januar 2017 bis August 2018 und nur zugestellte Bestellungen.
+- `02_validation.sql` hat eine Prüfung B8 bekommen: Wie viele Bestellungen landen über die Kundendimension in einem anderen Bundesstaat als ihre eigene Lieferadresse? Antwort: 43 von 99.441.
+
+### Was kam heraus
+
+**Kommerz**
+
+| Kennzahl | Wert |
+|---|---|
+| Realisierter Umsatz im Fenster | 13.181.027,13 BRL aus 96.211 zugestellten Bestellungen |
+| Wachstum Jan–Aug 2018 gegen Jan–Aug 2017 | +141,1 % |
+| Stärkster Monat | November 2017, 987.765 BRL (+52,4 % zum Vormonat) |
+| Durchschnittlicher Bestellwert je Monat | zwischen 124 und 149 BRL |
+| Konzentration Kategorien | Top 7 von 74 machen 49,9 % des Umsatzes, 18 Kategorien machen 81,3 % |
+| Top-Kategorie | health_beauty, 1.229.558 BRL (9,33 %) |
+| Bestellwert nach Region | Norte 181,96 BRL, Sudeste 130,61 BRL |
+| Frachtanteil nach Region | Norte 22,7 %, Sudeste 15,2 % |
+| Anteil Sudeste an Bestellungen | 68,6 % |
+| Kreditkarte als Hauptzahlart | 75,44 % der Bestellungen, 78,42 % des Zahlbetrags, im Schnitt 3,55 Raten |
+| Raten nach Bestellwert | 2,08 unter 50 BRL bis 7,29 ab 500 BRL |
+
+**Operations**
+
+| Kennzahl | Wert |
+|---|---|
+| Gesamtlaufzeit | 12,6 Tage im Schnitt |
+| davon Freigabe / Bearbeitung / Transport | 0,4 / 2,8 / 9,4 Tage |
+| Bearbeitung je Region | 2,7 bis 2,9 Tage, also überall gleich |
+| Transport je Region | Sudeste 7,6 Tage, Norte 19,3 Tage |
+| Verspätungsquote gesamt | 6,79 % |
+| Puffer zum Versprechen | im Schnitt 11,8 Tage zu früh zugestellt |
+| Schlechteste Monate | März 2018 18,96 %, Februar 2018 14,13 %, November 2017 12,40 % |
+| Verspätungsquote Nordeste | 12,76 %, fast doppelt so hoch wie gesamt |
+| Schlechteste Bundesstaaten | AL 21,46 %, MA 17,46 %; RJ 12,15 % gegenüber SP 4,50 % |
+| Bewertung pünktlich | 4,29 Sterne, 6,6 % Ein-Stern |
+| Bewertung 1–3 Tage zu spät | 3,29 Sterne, 25,1 % Ein-Stern |
+| Bewertung 4–7 Tage zu spät | 2,10 Sterne, 58,6 % Ein-Stern |
+| Bewertung über 7 Tage zu spät | 1,70 Sterne, 69,8 % Ein-Stern |
+| Höchster Frachtanteil Kategorie | electronics 29,5 %, office_furniture 25,0 % |
+| Frachtanteil nach Entfernung | gleicher Staat 13,0 %, gleiche Region 17,4 %, andere Region 18,8 % |
+| Verkäufer-Standort | 83,7 % der Positionen kommen aus dem Sudeste |
+
+### Warum so entschieden
+
+- **Realisierter Umsatz**: Nur zugestellte Bestellungen zählen als Umsatz. Offene Bestellungen können noch storniert werden. Weil zugestellte Bestellungen 97,34 % des Warenumsatzes tragen, ändert die Wahl am Bild nichts.
+- **Verzug gegen Versprechen als Leitgröße**: Kunden bekommen beim Kauf ein Lieferdatum genannt. Ob dieses Datum gehalten wird, misst die Erwartung, nicht die Dauer. Dass der Norte trotz 22,6 Tagen Laufzeit eine niedrigere Verspätungsquote hat als der Nordeste, zeigt den Unterschied: Dort wird großzügiger versprochen.
+- **Verzugsklassen**: pünktlich (null oder weniger Tage), 1 bis 3, 4 bis 7, über 7 Tage. Die Grenzen folgen dem Gefühl des Kunden: ein paar Tage, etwa eine Woche, mehr als eine Woche.
+- **Zerlegung der Lieferzeit nur bei plausibler Reihenfolge**: 94.844 von 96.203 zugestellten Bestellungen im Fenster. Ohne diesen Filter würden unmögliche negative Bearbeitungszeiten den Durchschnitt drücken.
+- **Ratenanalysen nur bei Kreditkarte**: Nur dort gibt es Raten. Andere Zahlarten würden den Schnitt auf 1 ziehen.
+- **Kategorie bei Ratenanalysen**: Eine Bestellung zählt in jeder Kategorie, aus der sie eine Position enthält, aber je Kategorie nur einmal. Damit gibt es innerhalb einer Kategorie keinen Fan-out.
+- **Entfernungsklasse über Bundesstaaten**: In SQL robust und für das Management lesbar. Kilometer folgen in der Python-Frachtanalyse.
+- **Bundesstaat aus der Kundendimension**: Nur 43 Bestellungen (0,043 %) würden über die Lieferadresse einem anderen Staat zugeordnet. Die Abweichung vom Datenmodell, eine eigene Lieferadresse in `fact_orders` zu führen, lohnt sich dafür nicht.
+
+**Abnahmekriterium AP4** (alle Abfragen 5–12 laufen, jede mit Interpretationssatz): erfüllt. Beide Dateien laufen fehlerfrei, jede Abfrage trägt Frage und Ergebnis mit Zahl im Kommentar.

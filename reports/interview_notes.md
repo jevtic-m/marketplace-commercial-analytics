@@ -33,3 +33,19 @@ Weil die Ränder keine echten Marktdaten sind, sondern Anlauf und Abschnitt des 
 
 **Wie gehst du mit Bestellungen um, die nie zugestellt wurden?**
 Sie bleiben im Modell, aber nicht in der Lieferzeit- und Bewertungsanalyse, weil es keine Zustellung gibt, die man messen könnte. Stornierte und nicht lieferbare Bestellungen (1,19 % im Fenster) laufen als eigene Stornoquote, auch je Verkäufer. Dass sie im Schnitt nur mit 1,5 bis 1,8 Sternen bewertet werden, zeigt, warum man sie nicht einfach weglassen darf.
+
+---
+
+## AP4 / AP5 — Analysen
+
+**Was ist der Unterschied zwischen Lieferzeit und Lieferverzug, und welcher ist für die Zufriedenheit relevant?**
+Lieferzeit ist die Dauer vom Kauf bis zur Zustellung, im Schnitt 12,6 Tage. Lieferverzug ist die Differenz zwischen tatsächlichem und versprochenem Zustelldatum, also ob die Zusage gehalten wurde. Für die Bewertung ist der Verzug die stärkere Größe: Pünktliche Lieferungen bekommen 4,29 Sterne, mehr als eine Woche Verzug nur 1,70 Sterne. [Gegenprobe zur absoluten Lieferzeit folgt in AP5.]
+
+**Wie hast du die Lieferzeit zerlegt, und warum?**
+In drei Abschnitte entlang der Zeitstempel: Zahlungsfreigabe (0,4 Tage), Bearbeitung beim Verkäufer bis zur Übergabe an die Logistik (2,8 Tage) und Transport bis zum Kunden (9,4 Tage). Die Zerlegung zeigt, wer welchen Hebel hat: Die Bearbeitung ist in allen Regionen gleich, der Unterschied zwischen 7,6 Tagen Transport im Sudeste und 19,3 Tagen im Norte liegt bei der Logistik, nicht bei den Verkäufern.
+
+**Dein Befund zeigt: späte Lieferung, schlechte Bewertung. Ist das kausal?**
+[folgt in AP5]
+
+**Welche Störfaktoren könnten beides erklären?**
+[folgt in AP5]
