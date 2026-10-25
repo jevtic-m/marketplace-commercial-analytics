@@ -1,0 +1,6 @@
+weighting,spearman_vs_base,bottom_quartile_overlap_pct
+Basis 40/30/15/15,1.0,100.0
+Gleichgewichtet 25/25/25/25,0.977,88.4
+Nur Bewertung,0.746,65.7
+Nur Operations 0/50/25/25,0.963,89.5
+Bewertung stärker 60/20/10/10,0.98,94.2

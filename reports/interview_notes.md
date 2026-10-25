@@ -49,3 +49,19 @@ Nein, nachgewiesen ist ein Zusammenhang. Er ist stark und robust: Er hält bei B
 
 **Welche Störfaktoren könnten beides erklären?**
 Ein nachlässiger Verkäufer verschickt spät und packt schlecht, Kunden in entlegenen Regionen bekommen längere Wege und schlechteren Service, und defekte oder falsch beschriebene Ware führt zu Rücksendungen, die als Verzug erscheinen. Dass es weitere Treiber gibt, zeigen die Daten selbst: Bestellungen mit mehreren Verkäufern sind fast nie verspätet (0,95 %), werden aber im Schnitt nur mit 2,86 Sternen bewertet.
+
+---
+
+## AP6 — Scorecard und Cutoff
+
+**Wie hast du die Gewichte der Scorecard gewählt?**
+Gesetzt und begründet, nicht optimiert: Bewertung 40 %, Verspätung 30 %, Bearbeitungszeit 15 %, Stornoquote 15 %. Die Bewertung ist das direkte Kundenurteil, die Verspätung der stärkste Begleiter schlechter Bewertungen aus meiner Lieferanalyse. Dass das Ergebnis nicht an diesen Zahlen hängt, habe ich geprüft: Mit gleichen Gewichten korreliert das Ranking zu 0,98 mit meinem, und das untere Quartil bleibt zu 88 % dieselbe Gruppe.
+
+**Was machst du mit Verkäufern, die nur drei Bestellungen hatten?**
+Ich dämpfe ihre Kennzahlen zum Marktschnitt: gedämpfter Wert = (n mal eigener Wert plus k mal Marktschnitt) geteilt durch (n plus k). Die Stärke k schätze ich aus den Daten, für die Bewertung sind das rund 26 Bestellungen. Ein Verkäufer mit drei Fünf-Sterne-Bewertungen bekommt deshalb 4,26 statt 5,0 und landet nahe am Durchschnitt, wo er hingehört, solange man wenig über ihn weiß.
+
+**Wie würdest du den optimalen Cutoff bestimmen, wenn du die Marge je Bestellung kennst?**
+Ich würde für jede Schwelle den Gewinn rechnen: Marge auf den verbleibenden Umsatz minus die Kosten der verbleibenden Ein-Stern-Erlebnisse (Kundenservice, verlorene Folgekäufe, Ruf), und die Schwelle mit dem höchsten Gewinn wählen. Bei Score 62 kostet der Ausschluss 636.001 BRL Umsatz und vermeidet 902 Ein-Stern-Bewertungen, also rund 705 BRL Umsatz je vermiedener Bewertung. Bei 20 % Marge lohnt er sich nur, wenn eine Ein-Stern-Bewertung den Marktplatz mehr als etwa 141 BRL kostet.
+
+**Was spricht dagegen, einfach alle schlecht bewerteten Verkäufer auszuschließen?**
+Erstens Zufall: 60 % der Verkäufer haben weniger als 10 Bestellungen, ihre Durchschnittsbewertung schwankt stark. Zweitens wirkt es weniger als gedacht: Mit einem Score aus 2017 entfallen in 2018 nur 3,3 % der Ein-Stern-Bewertungen bei 2,2 % Umsatz, die Durchschnittsbewertung steigt um 0,01 Sterne. Drittens hängen schlechte Bewertungen stark am gebrochenen Lieferversprechen, das teils bei der Logistik liegt, und 27 große, schwache Verkäufer mit 4,4 % Umsatz verliert man ungern ohne Qualitätsprogramm.

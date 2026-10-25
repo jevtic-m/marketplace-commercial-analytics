@@ -2,7 +2,7 @@
 
 **Business-Frage:** Wo verliert ein Online-Marktplatz Kundenzufriedenheit und Marge, und welche Verkäufer sollte er steuern, fördern oder aussortieren?
 
-**Kernergebnis:** Verkäufer unterhalb Score [X] verursachen [Y] % aller Ein-Stern-Bewertungen bei nur [Z] % des Umsatzes. Ein Ausschluss hebt die Durchschnittsbewertung um [A] Sterne und kostet [Z] % Umsatz.
+**Kernergebnis:** Auf die 62 Verkäufer unterhalb Score 62 entfallen 9,7 % aller Ein-Stern-Bewertungen bei nur 4,8 % des Umsatzes. Ein Ausschluss kostet 4,8 % Umsatz und hebt die Durchschnittsbewertung rechnerisch nur um 0,03 Sterne (4,16 auf 4,19). Der größere Hebel ist das Lieferversprechen: Pünktliche Lieferungen erhalten 4,29 Sterne, mehr als eine Woche Verzug 1,70.
 
 **Stack:** DuckDB (SQL, 9 verknüpfte Tabellen) · Python (pandas, numpy, scipy, matplotlib) · Power BI
 
@@ -46,7 +46,7 @@ Die Zahlen an den Kanten sind gemessen, nicht angenommen: Eine Bestellung hat 1 
 4. Kommerzielle Analysen: Umsatz, Kategorien, Regionen, Zahlverhalten (`01_sql/03_commercial.sql`)
 5. Operations: Lieferzeit-Zerlegung, Verzug gegen Versprechen, Bewertungen, Fracht (`01_sql/04_operations.sql`), vertieft mit Gegenprobe, Regression und Robustheitsprüfungen in `02_python/02_delivery_analysis.py`
 6. Kunden: RFM-Segmente und Merkmale der Wiederkäufer (`02_python/04_rfm.py`)
-7. Verkäufer-Scorecard und Cutoff-Analyse [folgt in AP6]
+7. Verkäufer-Konzentration, Kennzahlen und Kohorten (`01_sql/05_sellers.sql`), Scorecard (`02_python/03_seller_score.py`) und Cutoff-Analyse mit Gegenprobe außerhalb der Stichprobe (`02_python/05_cutoff_analysis.py`)
 
 ## Ergebnisse
 
@@ -87,7 +87,29 @@ Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 - **Wiederkauf ist selten.** Nur 2,15 % der Kunden kaufen an mehr als einem Tag, innerhalb von 180 Tagen nach dem Erstkauf 1,98 %. Eine klassische Kohortenanalyse wäre daher fast leer.
 - **Kategorie und Region unterscheiden Wiederkäufer, Service kaum messbar.** Wer zuerst Taschen und Accessoires, Tierbedarf oder Heimtextilien kauft, kommt bis zu dreimal so oft wieder wie bei cool_stuff (3,3 % gegenüber 1,0 %). Bewertung und Pünktlichkeit der Erstbestellung zeigen in die erwartete Richtung, sind aber statistisch nicht abgesichert.
 
-[Weitere Ergebnisse folgen mit AP6.]
+### Verkäufer (`01_sql/05_sellers.sql`, `02_python/03_seller_score.py`, `02_python/05_cutoff_analysis.py`)
+
+- **Konzentration.** Die Top 10 % der 2.945 Verkäufer mit Umsatz machen 67,0 % des Umsatzes, die untere Hälfte 3,4 %. 60 % der Verkäufer haben weniger als 10 zugestellte Bestellungen.
+- **Verkäufer-Kohorten.** Von einer Startkohorte sind nach einem Monat noch 57,6 % aktiv, nach 12 Monaten 35,2 %.
+- **Scorecard.** Bewertung 40 %, Verspätungsquote 30 %, Bearbeitungszeit 15 %, Stornoquote 15 %, jede Kennzahl zum Marktmittel gedämpft. Das Ranking ist robust gegenüber anderen Gewichten (Rangkorrelation 0,96 bis 0,98).
+
+![Score-Verteilung](reports/figures/03_seller_score_distribution.png)
+
+- **Cutoff.** Gewählt ist die höchste Schwelle mit höchstens 5 % Umsatzverlust: Score 62.
+
+| Kennzahl | Score 62, ganzes Fenster | Gegenprobe: Score aus 2017, Wirkung 2018 |
+|---|---|---|
+| Anteil an Ein-Stern-Bewertungen | 9,7 % | 3,3 % |
+| Anteil am Umsatz | 4,8 % | 2,2 % |
+| Veränderung Ø Bewertung | +0,03 Sterne | +0,01 Sterne |
+
+![Trade-off-Kurve](reports/figures/05_cutoff_tradeoff.png)
+
+- **Quadranten.** 27 große, aber schwache Verkäufer tragen 4,4 % des Umsatzes. Sie sind der eigentliche Steuerungsfall. 35 kleine, schwache Verkäufer tragen 0,4 %.
+
+![Verkäufer nach Umsatz und Score](reports/figures/05_seller_quadrants.png)
+
+- **Unteres Quartil.** Die 173 Verkäufer im unteren Score-Quartil der verlässlich bewerteten Verkäufer (mindestens 25 Bestellungen) tragen 36,7 % der Ein-Stern-Bewertungen bei 23,3 % des Umsatzes.
 
 ## Annahmen und Limitationen
 
@@ -109,7 +131,10 @@ Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 - **Entfernung als Luftlinie** zwischen den Median-Koordinaten der PLZ-Präfixe, nicht als Straßenkilometer.
 - **Wiederkauf** zählt nur einen späteren Kauftag innerhalb von 180 Tagen. Mehrere Bestellungen am selben Tag gelten als ein Kauf.
 - **Brasilianischer Markt.** Logistik und Zahlungsgewohnheiten (Boleto, Ratenzahlung) sind nicht direkt auf Europa übertragbar.
-- Weitere Annahmen folgen mit den jeweiligen Arbeitspaketen.
+- **Gewichte der Scorecard sind gesetzt, nicht optimiert** (40/30/15/15). Die Sensitivitätsprüfung zeigt, dass das Ranking kaum an ihnen hängt.
+- **Verkäufer mit wenigen Bestellungen haben instabile Kennzahlen.** Sie werden zum Marktmittel gedämpft; die Dämpfungsstärke ist je Kennzahl aus den Daten geschätzt (zum Beispiel 26 Bestellungen bei der Bewertung).
+- **Bewertung, Verspätung und Bearbeitung je Verkäufer** zählen nur Bestellungen mit genau einem Verkäufer (98,7 %), weil sich die Bewertung sonst keinem Verkäufer zuordnen lässt.
+- **Cutoff über ein Umsatzbudget von 5 %**, weil ohne Margendaten kein Gewinnoptimum berechenbar ist. Der Effekt im ganzen Fenster ist optimistisch, weil der Score dieselben Bewertungen enthält; die Gegenprobe mit einem 2017er Score auf 2018 zeigt einen Effekt von rund einem Drittel.
 
 ## Reproduktion
 
@@ -128,6 +153,9 @@ python 02_python/run_sql.py 01_sql/03_commercial.sql
 python 02_python/run_sql.py 01_sql/04_operations.sql
 python 02_python/02_delivery_analysis.py
 python 02_python/04_rfm.py
+python 02_python/run_sql.py 01_sql/05_sellers.sql
+python 02_python/03_seller_score.py
+python 02_python/05_cutoff_analysis.py
 ```
 
 Weitere Schritte folgen mit den nächsten Arbeitspaketen.

@@ -81,7 +81,7 @@ Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht vo
 - **Kategorien**: zwei fehlende Übersetzungen von Hand ergänzt, fehlende Kategorie wird `unknown`.
 - **first_sale_date** je Verkäufer aus allen Bestellungen unabhängig vom Status, weil es um den Zeitpunkt des Aktivwerdens geht.
 
-**Abnahmekriterium AP2** (`fact_orders` steht, Fan-out nachweislich gelöst): erfüllt. Zeilenzahl 99.441 = `orders`, Umsatz- und Zahlungssumme stimmen auf den Cent mit den Rohtabellen überein. Der explizite Fan-out-Nachweis (naiver Join gegen Aggregation) folgt als Abfrage in AP3.
+**Abnahmekriterium AP2** (`fact_orders` steht, Fan-out nachweislich gelöst): erfüllt. Zeilenzahl 99.441 = `orders`, Umsatz- und Zahlungssumme stimmen auf den Cent mit den Rohtabellen überein. Der explizite Fan-out-Nachweis (naiver Join gegen Aggregation) steht in `02_validation.sql`, Abfrage B4 (siehe AP3).
 
 ---
 
@@ -247,3 +247,69 @@ Pflichtprüfungen nach Neuaufbau: `fact_orders` = `orders` = 99.441 Zeilen, Wied
 - **Hauptkategorie einer Bestellung** = Kategorie der teuersten Position.
 
 **Abnahmekriterium AP5** (Kernbefund steht als Zahl): erfüllt. Pünktlich 4,29 Sterne, über 7 Tage Verzug 1,70 Sterne. Bei gleicher Lieferdauer geht ein gebrochenes Versprechen mit 1,54 Sternen weniger einher.
+
+---
+
+## AP6 — Verkäufer-Scorecard und Cutoff-Analyse
+
+### Was wurde gemacht
+
+- `01_sql/05_sellers.sql`: Abfragen 13 bis 15 (Umsatzkonzentration, Verkäufer-Kennzahlen, Verkäufer-Kohorten). Dazu zwei Views: `v_seller_orders` (eine Zeile je Verkäufer und Bestellung) und `v_seller_kpis` (eine Zeile je Verkäufer).
+- `02_python/03_seller_score.py`: Scorecard von 0 bis 100 aus vier Kennzahlen. Jede Kennzahl wird zum Marktmittel gedämpft, auf 0 bis 100 normiert und gewichtet. Die Python-Kennzahlen werden gegen die SQL-View abgeglichen. Zusätzlich ein zweiter Score nur aus Bestellungen von 2017.
+- `02_python/05_cutoff_analysis.py`: Für jede Schwelle von 0 bis 100 wird gerechnet, was ein Ausschluss aller Verkäufer darunter bringt und kostet. Dann wird eine Schwelle nach fester Regel gewählt, in Quadranten eingeordnet und mit dem 2017er Score gegen die Bestellungen von 2018 gegengeprüft.
+
+### Was kam heraus
+
+**Konzentration und Kohorten (SQL)**
+
+| Kennzahl | Wert |
+|---|---|
+| Verkäufer mit realisiertem Umsatz | 2.945 |
+| Umsatzanteil Top 1 % / 5 % / 10 % / 20 % | 25,9 % / 53,0 % / 67,0 % / 82,2 % |
+| Umsatzanteil untere Hälfte | 3,4 % |
+| Verkäufer mit weniger als 10 zugestellten Bestellungen | 1.834 von 3.068 (60 %) |
+| Median zugestellte Bestellungen je Verkäufer | 6 |
+| Aktiv nach 1 / 3 / 6 / 12 Monaten | 57,6 % / 52,4 % / 44,4 % / 35,2 % |
+
+**Scorecard**
+
+| Baustein | Gewicht | 0 Punkte bei | 100 Punkte bei | Geschätzte Dämpfung k |
+|---|---|---|---|---|
+| Bewertung | 40 % | 1 Stern | 5 Sterne | 26 Bestellungen |
+| Verspätungsquote | 30 % | 20 % | 0 % | 42 Bestellungen |
+| Bearbeitungszeit | 15 % | 10 Tage | 0 Tage | 5 (Untergrenze) |
+| Stornoquote | 15 % | 10 % | 0 % | 65 Bestellungen |
+
+- Abgleich Python gegen SQL-View: Umsatz, Bewertung, Verspätung und Storno stimmen für alle 3.068 Verkäufer überein.
+- Score-Verteilung der 691 Verkäufer mit mindestens 25 bewertbaren Bestellungen: Median 78,2, unteres Quartil unter 73,6, Minimum 39,2.
+- Beispiel Dämpfung: Ein Verkäufer mit drei Fünf-Sterne-Bewertungen bekommt nicht 5,0, sondern 4,26, weil der Marktschnitt bei 4,17 liegt und erst ab rund 26 Bestellungen der eigene Wert überwiegt.
+- Sensitivität der Gewichte (Rangkorrelation mit dem Basis-Score): gleichgewichtet 0,977, nur Operations 0,963, Bewertung stärker 0,980, nur Bewertung 0,746. Das untere Quartil bleibt bei den ersten drei Varianten zu 88 bis 94 % dasselbe.
+
+**Cutoff**
+
+| Kennzahl bei Score 62 | Wert |
+|---|---|
+| Verkäufer unter der Schwelle | 62 |
+| Anteil an allen Ein-Stern-Bewertungen | 9,7 % (902 Bewertungen) |
+| Anteil am Umsatz | 4,8 % (636.001 BRL) |
+| Durchschnittsbewertung vorher / nachher | 4,156 / 4,185 (+0,029 Sterne) |
+| Gegenprobe 2017er Score auf 2018 | 3,3 % der Ein-Stern-Bewertungen bei 2,2 % Umsatz, +0,009 Sterne |
+| Regel "größter Abstand" zum Vergleich | Score 76, 55,1 % Ein-Stern bei 39,0 % Umsatz |
+
+- Quadranten (groß = Top 20 % nach Umsatz, ab 4.420 BRL; gut = Score ab 62): 587 groß und gut (78,6 % Umsatz), 27 groß und schwach (4,4 %), 2.419 klein und gut (16,6 %), 35 klein und schwach (0,4 %).
+- Unteres Score-Quartil der 691 verlässlich bewerteten Verkäufer (173 Verkäufer, Score unter 73,6): 36,7 % der Ein-Stern-Bewertungen bei 23,3 % des Umsatzes.
+
+**Was das heißt:** Schwache Verkäufer tragen etwa doppelt so viel Anteil an Ein-Stern-Bewertungen wie an Umsatz. Ein Ausschluss allein bewegt die Durchschnittsbewertung aber kaum, und mit einem Score aus der Vergangenheit schrumpft der Effekt auf ein Drittel. Schlechte Erlebnisse sind über den ganzen Marktplatz verteilt, nicht in wenigen Verkäufern gebündelt. Aussortieren ist deshalb ein Werkzeug für wenige klare Fälle, der größere Hebel liegt beim Lieferversprechen.
+
+### Warum so entschieden
+
+- **Verkäuferzuordnung**: Bewertung, Verspätung und Bearbeitung zählen nur bei Bestellungen mit genau einem Verkäufer, weil sich bei mehreren Verkäufern nicht sagen lässt, wer verantwortlich ist. Umsatz und Storno zählen bei jedem beteiligten Verkäufer.
+- **Gewichte 40/30/15/15**: Bewertung als direktes Kundenurteil am stärksten, Verspätung als stärkster Begleiter schlechter Bewertungen aus AP5, Bearbeitung und Storno geringer, weil die Bearbeitung zum Teil in der Verspätung steckt und Stornos selten sind. Die Gewichte sind gesetzt, nicht optimiert; die Sensitivitätsprüfung zeigt, dass das Ranking kaum daran hängt.
+- **Feste Anker statt Perzentile**: "Score 60" bedeutet so immer dasselbe, auch wenn sich die Verkäuferbasis ändert.
+- **Dämpfung statt Mindestbestellzahl**: Kein Verkäufer fällt aus der Bewertung, aber wenige Bestellungen ziehen ihn zum Marktschnitt. Die Stärke k wird je Kennzahl geschätzt als Verhältnis der Streuung innerhalb eines Verkäufers zur echten Streuung zwischen Verkäufern. Für die Bearbeitungszeit ergibt das einen sehr kleinen Wert (Verkäufer sind dort sehr konstant), deshalb greift die Untergrenze von 5.
+- **Cutoff über ein Umsatzbudget von höchstens 5 %**: Ohne Margendaten gibt es kein Gewinnoptimum. Ein Budget ist eine bewusst gesetzte Risikobereitschaft. Die Regel "größter Abstand zwischen vermiedenen Ein-Stern-Bewertungen und verlorenem Umsatz" hätte 39 % Umsatz gekostet.
+- **Gegenprobe mit 2017er Score**: Der Score enthält die Bewertungen, an denen der Effekt gemessen wird. Ohne Gegenprobe wäre der Effekt eines Ausschlusses zu optimistisch.
+- **Bestellungen mit mehreren Verkäufern im Cutoff**: Fällt einer der Verkäufer weg, entfällt die Bestellung samt Bewertung; der Umsatz entfällt nur für dessen Anteil.
+- **Verkäufer-Kohorten statt Kunden-Kohorten**: Bei rund 2 % Wiederkäufern wäre eine Kunden-Kohortentabelle fast leer.
+
+**Abnahmekriterium AP6** (Trade-off-Tabelle liegt vor, Schlagzeile gefüllt): erfüllt. Die Tabelle steht in `03_dashboard/exports/cutoff_tradeoff.csv` (Schwellen 0 bis 100), die Schlagzeile im README ist mit berechneten Zahlen gefüllt.

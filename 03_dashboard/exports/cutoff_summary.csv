@@ -1,0 +1,13 @@
+metric,value
+chosen_cutoff,62.0
+n_sellers_excluded,62.0
+revenue_lost_pct,4.83
+one_star_removed_pct,9.68
+avg_review_all,4.156
+avg_review_kept,4.185
+review_uplift,0.029
+out_of_sample_2018_revenue_lost_pct,2.23
+out_of_sample_2018_one_star_removed_pct,3.29
+out_of_sample_2018_review_uplift,0.009
+lower_quartile_one_star_pct,36.74
+lower_quartile_revenue_pct,23.3
