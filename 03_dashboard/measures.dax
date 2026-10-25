@@ -1,0 +1,239 @@
+// ============================================================================
+// measures.dax: DAX-Measures für das Marktplatz-Dashboard (Power BI)
+// ============================================================================
+// Datenbasis: CSV-Dateien aus 03_dashboard/exports/ (Analysefenster 01/2017
+// bis 08/2018, Beträge in BRL). Datenmodell und Seitenaufbau: layout.md.
+//
+// Beziehungen (alle 1:n, Filterrichtung einfach, von der Dimension zur Fakte):
+//   dim_date[date_id]                    -> fact_orders[purchase_date_id]
+//   dim_customer[customer_unique_id]     -> fact_orders[customer_unique_id]
+//   fact_orders[order_id]                -> fact_order_items[order_id]
+//   dim_product[product_id]              -> fact_order_items[product_id]
+//   dim_seller[seller_id]                -> fact_order_items[seller_id]
+// Keine direkte Beziehung von fact_order_items zu dim_date oder dim_customer,
+// sonst gäbe es zwei Filterwege und Power BI müsste einen deaktivieren.
+//
+// Regeln, die in den Measures stecken (identisch mit SQL und Python):
+//   - Umsatz = Summe price beziehungsweise item_revenue, nur 'delivered'
+//   - Lieferzeit und Bewertung nur, wenn is_delivery_base = TRUE
+//     (Status 'delivered' und Zustelldatum vorhanden)
+//   - Zerlegung der Lieferzeit nur, wenn is_decomposition_base = TRUE
+//     (zusätzlich keine negativen Teilzeiten)
+// ============================================================================
+
+
+// ----------------------------------------------------------------------------
+// Hilfstabelle für den Cutoff-Regler (Modellierung > Neue Tabelle)
+// ----------------------------------------------------------------------------
+CutoffParam =
+SELECTCOLUMNS ( GENERATESERIES ( 0, 100, 1 ), "Cutoff", [Value] )
+
+
+// ----------------------------------------------------------------------------
+// Seite 1: Marktplatz-Überblick
+// ----------------------------------------------------------------------------
+Revenue BRL =
+CALCULATE ( SUM ( fact_orders[item_revenue] ), fact_orders[order_status] = "delivered" )
+
+Orders Delivered =
+CALCULATE ( COUNTROWS ( fact_orders ), fact_orders[order_status] = "delivered" )
+
+Avg Order Value BRL =
+DIVIDE ( [Revenue BRL], [Orders Delivered] )
+
+Freight Share =
+DIVIDE (
+    CALCULATE ( SUM ( fact_orders[freight_total] ), fact_orders[order_status] = "delivered" ),
+    [Revenue BRL]
+)
+
+Avg Review =
+CALCULATE ( AVERAGE ( fact_orders[review_score] ), fact_orders[is_delivery_base] = TRUE () )
+
+Late Rate =
+DIVIDE (
+    CALCULATE (
+        COUNTROWS ( fact_orders ),
+        fact_orders[is_delivery_base] = TRUE (),
+        fact_orders[is_late] = TRUE ()
+    ),
+    CALCULATE ( COUNTROWS ( fact_orders ), fact_orders[is_delivery_base] = TRUE () )
+)
+
+Cancel Rate =
+DIVIDE (
+    CALCULATE ( COUNTROWS ( fact_orders ), fact_orders[is_canceled] = TRUE () ),
+    COUNTROWS ( fact_orders )
+)
+
+// Vormonatsvergleich: dim_date muss als Datumstabelle markiert sein (Spalte date)
+Revenue Prev Month BRL =
+CALCULATE ( [Revenue BRL], DATEADD ( dim_date[date], -1, MONTH ) )
+
+Revenue MoM % =
+DIVIDE ( [Revenue BRL] - [Revenue Prev Month BRL], [Revenue Prev Month BRL] )
+
+
+// ----------------------------------------------------------------------------
+// Seite 2: Operations
+// ----------------------------------------------------------------------------
+Avg Days To Approval =
+CALCULATE ( AVERAGE ( fact_orders[days_to_approval] ), fact_orders[is_decomposition_base] = TRUE () )
+
+Avg Days Seller Handling =
+CALCULATE ( AVERAGE ( fact_orders[days_seller_handling] ), fact_orders[is_decomposition_base] = TRUE () )
+
+Avg Days In Transit =
+CALCULATE ( AVERAGE ( fact_orders[days_in_transit] ), fact_orders[is_decomposition_base] = TRUE () )
+
+Avg Days Total =
+CALCULATE ( AVERAGE ( fact_orders[days_total] ), fact_orders[is_delivery_base] = TRUE () )
+
+// Negativ = vor dem versprochenen Datum zugestellt
+Avg Days Vs Estimate =
+CALCULATE ( AVERAGE ( fact_orders[days_vs_estimate] ), fact_orders[is_delivery_base] = TRUE () )
+
+One Star Share =
+DIVIDE (
+    CALCULATE (
+        COUNTROWS ( fact_orders ),
+        fact_orders[is_delivery_base] = TRUE (),
+        fact_orders[review_score] = 1
+    ),
+    CALCULATE ( COUNT ( fact_orders[review_score] ), fact_orders[is_delivery_base] = TRUE () )
+)
+
+Reviewed Orders =
+CALCULATE ( COUNT ( fact_orders[review_score] ), fact_orders[is_delivery_base] = TRUE () )
+
+
+// ----------------------------------------------------------------------------
+// Seite 3: Verkäufer
+// ----------------------------------------------------------------------------
+// Umsatz auf Positionsebene, damit er sich je Verkäufer aufteilen lässt.
+// Der Statusfilter auf fact_orders wirkt über die Beziehung auf die Positionen.
+Seller Revenue BRL =
+CALCULATE ( SUM ( fact_order_items[price] ), fact_orders[order_status] = "delivered" )
+
+Seller Revenue Share =
+DIVIDE ( [Seller Revenue BRL], CALCULATE ( [Seller Revenue BRL], ALL ( dim_seller ) ) )
+
+Sellers With Revenue =
+CALCULATE ( COUNTROWS ( dim_seller ), dim_seller[n_delivered_orders] > 0 )
+
+
+// ----------------------------------------------------------------------------
+// Seite 4: Cutoff-Simulator
+// ----------------------------------------------------------------------------
+// Logik wie in 05_cutoff_analysis.py:
+//   - Verkäufer mit Score unter der Schwelle fallen weg.
+//   - Umsatz entfällt nur für ihre eigenen Positionen.
+//   - Eine Bestellung (und ihre Bewertung) entfällt, sobald einer ihrer
+//     Verkäufer wegfällt.
+//   - Basis sind alle zugestellten Bestellungen.
+// Standardwert 62 = gewählter Cutoff (höchstens 5 % Umsatzverlust).
+Seller Cutoff =
+SELECTEDVALUE ( CutoffParam[Cutoff], 62 )
+
+Total Revenue All Sellers =
+CALCULATE ( SUM ( fact_order_items[price] ), fact_orders[order_status] = "delivered", ALL ( dim_seller ) )
+
+Kept Revenue =
+VAR cutoff = [Seller Cutoff]
+RETURN
+    CALCULATE (
+        SUM ( fact_order_items[price] ),
+        fact_orders[order_status] = "delivered",
+        FILTER ( ALL ( dim_seller ), dim_seller[score] >= cutoff )
+    )
+
+Revenue Kept % =
+DIVIDE ( [Kept Revenue], [Total Revenue All Sellers] )
+
+Revenue Lost % =
+1 - [Revenue Kept %]
+
+Sellers Kept % =
+VAR cutoff = [Seller Cutoff]
+RETURN
+    DIVIDE (
+        CALCULATE (
+            COUNTROWS ( dim_seller ),
+            dim_seller[n_delivered_orders] > 0,
+            FILTER ( ALL ( dim_seller ), dim_seller[score] >= cutoff )
+        ),
+        CALCULATE ( COUNTROWS ( dim_seller ), ALL ( dim_seller ), dim_seller[n_delivered_orders] > 0 )
+    )
+
+Sellers Excluded =
+VAR cutoff = [Seller Cutoff]
+RETURN
+    CALCULATE (
+        COUNTROWS ( dim_seller ),
+        dim_seller[n_delivered_orders] > 0,
+        FILTER ( ALL ( dim_seller ), dim_seller[score] < cutoff )
+    )
+
+Avg Review All Delivered =
+CALCULATE ( AVERAGE ( fact_orders[review_score] ), fact_orders[order_status] = "delivered" )
+
+Avg Review Kept =
+VAR cutoff = [Seller Cutoff]
+VAR removed_orders =
+    CALCULATETABLE (
+        VALUES ( fact_order_items[order_id] ),
+        FILTER ( ALL ( dim_seller ), dim_seller[score] < cutoff )
+    )
+RETURN
+    CALCULATE (
+        AVERAGE ( fact_orders[review_score] ),
+        fact_orders[order_status] = "delivered",
+        KEEPFILTERS (
+            FILTER ( ALL ( fact_orders[order_id] ), NOT ( fact_orders[order_id] IN removed_orders ) )
+        )
+    )
+
+Review Uplift =
+[Avg Review Kept] - [Avg Review All Delivered]
+
+One Star Avoided =
+VAR cutoff = [Seller Cutoff]
+VAR removed_orders =
+    CALCULATETABLE (
+        VALUES ( fact_order_items[order_id] ),
+        FILTER ( ALL ( dim_seller ), dim_seller[score] < cutoff )
+    )
+RETURN
+    CALCULATE (
+        COUNTROWS ( fact_orders ),
+        fact_orders[order_status] = "delivered",
+        fact_orders[review_score] = 1,
+        KEEPFILTERS (
+            FILTER ( ALL ( fact_orders[order_id] ), fact_orders[order_id] IN removed_orders )
+        )
+    )
+
+One Star Avoided % =
+DIVIDE (
+    [One Star Avoided],
+    CALCULATE (
+        COUNTROWS ( fact_orders ),
+        fact_orders[order_status] = "delivered",
+        fact_orders[review_score] = 1
+    )
+)
+
+// Kontrollwerte aus der vorberechneten Tabelle cutoff_tradeoff.csv.
+// Sie müssen mit den dynamischen Measures oben übereinstimmen.
+Revenue Lost % (Tabelle) =
+DIVIDE ( LOOKUPVALUE ( cutoff_tradeoff[revenue_lost_pct], cutoff_tradeoff[cutoff], [Seller Cutoff] ), 100 )
+
+One Star Avoided % (Tabelle) =
+DIVIDE ( LOOKUPVALUE ( cutoff_tradeoff[one_star_removed_pct], cutoff_tradeoff[cutoff], [Seller Cutoff] ), 100 )
+
+Avg Review Kept (Tabelle) =
+LOOKUPVALUE ( cutoff_tradeoff[avg_review_kept], cutoff_tradeoff[cutoff], [Seller Cutoff] )
+
+// Für die Einfärbung im Streudiagramm (bedingte Formatierung nach Feldwert)
+Seller Below Cutoff Color =
+IF ( SELECTEDVALUE ( dim_seller[score] ) < [Seller Cutoff], "#eb6834", "#2a78d6" )

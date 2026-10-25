@@ -313,3 +313,40 @@ Pflichtprüfungen nach Neuaufbau: `fact_orders` = `orders` = 99.441 Zeilen, Wied
 - **Verkäufer-Kohorten statt Kunden-Kohorten**: Bei rund 2 % Wiederkäufern wäre eine Kunden-Kohortentabelle fast leer.
 
 **Abnahmekriterium AP6** (Trade-off-Tabelle liegt vor, Schlagzeile gefüllt): erfüllt. Die Tabelle steht in `03_dashboard/exports/cutoff_tradeoff.csv` (Schwellen 0 bis 100), die Schlagzeile im README ist mit berechneten Zahlen gefüllt.
+
+---
+
+## AP7 — Dashboard-Vorbereitung (Exporte, Measures, Layout)
+
+### Was wurde gemacht
+
+- `02_python/06_dashboard_exports.py` schreibt das Sternschema und fünf vorberechnete Hilfstabellen als CSV nach `03_dashboard/exports/`. Die Analyse-Skripte 02 bis 05 legen ihre Ergebnistabellen ebenfalls dort ab.
+- `03_dashboard/measures.dax` enthält alle Measures für die vier Seiten, inklusive eines dynamischen Cutoff-Simulators, der dieselbe Logik wie `05_cutoff_analysis.py` nachbildet.
+- `03_dashboard/layout.md` beschreibt je Seite Zielgruppe, Visuals, Felder, Achsen und Kontrollwerte.
+- Die Power-BI-Datei selbst und die Screenshots sind nicht Teil dieses Schritts. Sie entstehen von Hand in Power BI nach `layout.md`.
+
+### Was kam heraus
+
+| Datei | Zeilen | Größe |
+|---|---|---|
+| fact_orders.csv | 99.092 | 18,0 MB |
+| fact_order_items.csv | 112.279 | 17,4 MB |
+| dim_customer.csv | 95.774 | 8,6 MB |
+| dim_product.csv | 32.787 | 2,0 MB |
+| dim_seller.csv | 3.068 | 0,5 MB |
+| dim_date.csv | 608 | 0,04 MB |
+| Hilfstabellen und Analyseergebnisse | je unter 0,2 MB | |
+
+Kontrollwerte für das fertige Dashboard (stehen auch in `layout.md`): Umsatz 13.181.027 BRL, 96.211 zugestellte Bestellungen, Bestellwert 137,00 BRL, Bewertung 4,16, Verspätungsquote 6,79 %; beim Cutoff 62 ein Umsatzverlust von 4,83 % und 9,68 % vermiedene Ein-Stern-Bewertungen.
+
+### Warum so entschieden
+
+- **Nur das Analysefenster exportieren**: Im Dashboard soll niemand versehentlich die abgeschnittenen Randmonate plotten.
+- **Positionen filtern nur über `fact_orders`**: `fact_order_items` hat keine eigene Beziehung zu Datum und Kunde. Zwei Filterwege würden Power BI zwingen, einen still zu deaktivieren, und die Zahlen würden je nach Visual unterschiedlich gefiltert.
+- **Cutoff-Simulator doppelt**: Dynamische Measures rechnen live aus den Fakten, die Measures mit "(Tabelle)" lesen die in Python vorberechneten Werte. Stimmen beide überein, ist die DAX-Logik richtig.
+- **Score statt roher Bewertung im Streudiagramm**: Die rohe Bewertung kleiner Verkäufer ist Zufall. Der gedämpfte Score ist stabil; die rohe Bewertung steht im Tooltip.
+- **Keine zwei Werteachsen**: Umsatz und Bestellungen bekommen zwei Liniendiagramme. Im Pareto-Diagramm sind beide Reihen Prozentwerte, deshalb reicht eine gemeinsame Achse.
+- **Bundesstaat mit vollem Namen und Land** (`state_geo`), damit die Karte "PA" nicht als Pennsylvania liest.
+- **Zusatzskript**: Für die Exporte gibt es mit `06_dashboard_exports.py` ein Skript mehr als in der ursprünglichen Ordnerstruktur vorgesehen, ebenso die Hilfsdateien `run_sql.py` (SQL-Dateien ausführen) und `chart_style.py` (Diagrammstil). So bleibt jede Datei bei einer Aufgabe.
+
+**Abnahmekriterium AP7** (Dashboard läuft, Screenshots exportiert): nicht erfüllt, bewusst. Laut Auftrag gehören nur Exporte, Measures und Layout dazu. Exporte, `measures.dax` und `layout.md` liegen vollständig vor; Power-BI-Datei und Screenshots fehlen noch.

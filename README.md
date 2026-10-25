@@ -111,6 +111,18 @@ Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 
 - **Unteres Quartil.** Die 173 Verkäufer im unteren Score-Quartil der verlässlich bewerteten Verkäufer (mindestens 25 Bestellungen) tragen 36,7 % der Ein-Stern-Bewertungen bei 23,3 % des Umsatzes.
 
+## Dashboard
+
+Vier Seiten in Power BI: Marktplatz-Überblick, Operations, Verkäufer, Cutoff-Simulator. Bauplan mit Visuals, Feldern, Achsen und Kontrollwerten in `03_dashboard/layout.md`, Measures in `03_dashboard/measures.dax`, Daten in `03_dashboard/exports/`.
+
+[Screenshot Seite 1, Marktplatz-Überblick: 03_dashboard/screenshots/01_overview.png]
+
+[Screenshot Seite 2, Operations: 03_dashboard/screenshots/02_operations.png]
+
+[Screenshot Seite 3, Verkäufer: 03_dashboard/screenshots/03_sellers.png]
+
+[Screenshot Seite 4, Cutoff-Simulator: 03_dashboard/screenshots/04_cutoff_simulator.png]
+
 ## Annahmen und Limitationen
 
 - Kundenbezogene Kennzahlen laufen ausschließlich über `customer_unique_id`. `customer_id` wird pro Bestellung neu vergeben und ist nur der technische Join-Schlüssel zu `orders`. Über `customer_id` gerechnet wäre die Wiederkaufrate exakt null; tatsächlich haben 2.997 Personen mehr als eine Bestellung.
@@ -156,6 +168,7 @@ python 02_python/04_rfm.py
 python 02_python/run_sql.py 01_sql/05_sellers.sql
 python 02_python/03_seller_score.py
 python 02_python/05_cutoff_analysis.py
+python 02_python/06_dashboard_exports.py
 ```
 
 Weitere Schritte folgen mit den nächsten Arbeitspaketen.

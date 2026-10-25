@@ -1,0 +1,6 @@
+region,n_orders,avg_days_to_approval,avg_days_seller_handling,avg_days_in_transit,avg_days_total
+Norte,1772,0.5,2.85,19.3,22.65
+Nordeste,8892,0.46,2.9,16.7,20.05
+Centro-Oeste,5511,0.46,2.71,11.92,15.09
+Sul,13547,0.44,2.8,10.86,14.1
+Sudeste,65122,0.38,2.83,7.58,10.78
