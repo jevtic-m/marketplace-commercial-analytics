@@ -83,6 +83,7 @@ def load_reviewed_deliveries(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
           AND f.days_total IS NOT NULL
           AND f.review_score IS NOT NULL
           AND f.purchase_date_id BETWEEN 20170101 AND 20180831
+        ORDER BY f.order_id
     """
     return con.execute(query).df()
 
@@ -294,6 +295,7 @@ def load_freight_items(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         JOIN dim_customer c ON c.customer_unique_id = i.customer_unique_id
         WHERE f.order_status = 'delivered'
           AND f.purchase_date_id BETWEEN 20170101 AND 20180831
+        ORDER BY i.order_id, i.order_item_id
     """
     return con.execute(query).df()
 

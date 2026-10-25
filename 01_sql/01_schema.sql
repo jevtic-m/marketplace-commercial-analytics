@@ -331,7 +331,7 @@ reviews AS (
            review_score,
            ROW_NUMBER() OVER (
                PARTITION BY order_id
-               ORDER BY review_creation_date DESC, review_answer_timestamp DESC
+               ORDER BY review_creation_date DESC, review_answer_timestamp DESC, review_id
            ) AS review_rank
     FROM order_reviews
 )

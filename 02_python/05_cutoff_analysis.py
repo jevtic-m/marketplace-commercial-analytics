@@ -71,6 +71,7 @@ def load_delivered_seller_orders(con: duckdb.DuckDBPyConnection, score_table: st
         FROM v_seller_orders o
         LEFT JOIN {score_table} s ON s.seller_id = o.seller_id
         WHERE o.order_status = 'delivered'
+        ORDER BY o.seller_id, o.order_id
     """
     return con.execute(query).df()
 

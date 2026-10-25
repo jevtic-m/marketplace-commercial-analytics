@@ -115,14 +115,15 @@ FROM orders o
 LEFT JOIN order_items i USING (order_id)
 WHERE i.order_id IS NULL
 GROUP BY o.order_status
-ORDER BY n_orders_without_items DESC;
+ORDER BY n_orders_without_items DESC, o.order_status;
 
 
 -- A4. Kardinalitäten: wie viele Kindzeilen je Bestellung?
 -- Frage: Wie oft hat eine Bestellung mehrere Positionen, Zahlungen, Bewertungen?
--- Ergebnis: 9.803 Bestellungen mit mehr als einer Position, 2.961 mit mehr als
---   einer Zahlungszeile, 547 mit mehr als einer Bewertung, 1.278 mit mehreren
---   Verkäufern. Genau diese Bestellungen erzeugen beim naiven Join den Fan-out.
+-- Ergebnis: 9.803 Bestellungen mit mehr als einer Position (höchstens 21),
+--   2.961 mit mehr als einer Zahlungszeile, 547 mit mehr als einer Bewertung,
+--   1.278 mit mehreren Verkäufern (1,3 % der 98.666 Bestellungen mit Position).
+--   Genau diese Bestellungen erzeugen beim naiven Join den Fan-out.
 SELECT 'orders_with_multiple_items' AS check_name, COUNT(*) AS n_orders
 FROM (SELECT order_id FROM order_items GROUP BY order_id HAVING COUNT(*) > 1)
 UNION ALL
@@ -139,7 +140,13 @@ SELECT 'orders_with_multiple_sellers', COUNT(*)
 FROM (SELECT order_id FROM order_items GROUP BY order_id HAVING COUNT(DISTINCT seller_id) > 1)
 UNION ALL
 SELECT 'review_ids_used_for_multiple_orders', COUNT(*)
-FROM (SELECT review_id FROM order_reviews GROUP BY review_id HAVING COUNT(*) > 1);
+FROM (SELECT review_id FROM order_reviews GROUP BY review_id HAVING COUNT(*) > 1)
+UNION ALL
+SELECT 'max_items_in_one_order', MAX(n_items)
+FROM (SELECT order_id, COUNT(*) AS n_items FROM order_items GROUP BY order_id)
+UNION ALL
+SELECT 'orders_with_at_least_one_item', COUNT(DISTINCT order_id)
+FROM order_items;
 
 
 -- A5. Fehlende Werte in den fünf Zeitstempeln
@@ -222,7 +229,7 @@ SELECT order_status,
        ROUND(AVG(review_score), 2) AS avg_review_score
 FROM fact_orders
 GROUP BY order_status
-ORDER BY n_orders DESC;
+ORDER BY n_orders DESC, order_status;
 
 
 -- B2. Status gegen Zustelldatum
@@ -231,6 +238,11 @@ ORDER BY n_orders DESC;
 --   Zustelldatum ohne Status 'delivered'. Deshalb gilt für alle Lieferzeit-
 --   und Bewertungsanalysen die doppelte Bedingung: Status 'delivered' UND
 --   Zustelldatum gefüllt. Basis: 96.470 Bestellungen.
+-- ENTSCHEIDUNG: Behandlung der Bestellstatus. Lieferzeit und Bewertung nur
+--   für 'delivered' mit Zustelldatum. Umsatz nur für 'delivered' (realisierter
+--   Umsatz). 'canceled' und 'unavailable' getrennt als Stornoquote. Offene
+--   Status (shipped, invoiced, processing, created, approved) fließen in keine
+--   Kennzahl außer der Gesamtzahl der Bestellungen ein.
 SELECT COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NULL)      AS n_delivered_without_date,
        COUNT(*) FILTER (WHERE order_status <> 'delivered' AND days_total IS NOT NULL) AS n_date_without_delivered,
        COUNT(*) FILTER (WHERE order_status = 'delivered' AND days_total IS NOT NULL)  AS n_delivery_analysis_base
@@ -269,7 +281,7 @@ FROM fact_orders
 WHERE item_revenue IS NOT NULL
   AND paid_total IS NOT NULL
 GROUP BY payment_type_main
-ORDER BY n_orders DESC;
+ORDER BY n_orders DESC, payment_type_main;
 
 -- Abweichungen bei Bestellungen mit Gutscheinanteil
 SELECT COUNT(*) FILTER (WHERE has_voucher)                 AS n_orders_with_voucher,
@@ -320,6 +332,9 @@ SELECT 'Rohtabellen einzeln (Referenz)',
 --   99.092 Bestellungen (99,65 %), im Schnitt 4.955 je Monat. Die Ränder
 --   würden in Zeitreihen ein leeres Jahresende 2016 und einen künstlichen
 --   Absturz im September 2018 zeigen.
+-- ENTSCHEIDUNG: Analysefenster Januar 2017 bis August 2018 (Kaufdatum). Es
+--   behält 99,65 % der Bestellungen und schneidet nur Anlauf und Abbruch des
+--   Datenabzugs ab. Alle Analysen ab 03_commercial.sql nutzen dieses Fenster.
 SELECT LEFT(purchase_date_id::VARCHAR, 6) AS year_month,
        COUNT(*) AS n_orders,
        CASE WHEN purchase_date_id BETWEEN 20170101 AND 20180831

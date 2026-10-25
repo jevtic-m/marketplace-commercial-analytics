@@ -82,12 +82,12 @@ WITH category_revenue AS (
       AND f.purchase_date_id BETWEEN 20170101 AND 20180831
     GROUP BY p.category_en
 )
-SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC)              AS revenue_rank,
+SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC, category_en) AS revenue_rank,
        category_en,
        n_orders,
        ROUND(revenue_brl, 2)                                       AS revenue_brl,
        ROUND(100.0 * revenue_brl / SUM(revenue_brl) OVER (), 2)    AS revenue_share_pct,
-       ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC
+       ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC, category_en
                                             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
              / SUM(revenue_brl) OVER (), 2)                        AS cumulative_share_pct
 FROM category_revenue
@@ -117,7 +117,7 @@ JOIN dim_customer c ON c.customer_unique_id = f.customer_unique_id
 WHERE f.order_status = 'delivered'
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY c.region, c.state
-ORDER BY avg_order_value_brl DESC;
+ORDER BY avg_order_value_brl DESC, c.state;
 
 -- Verdichtet auf die fünf Großregionen
 SELECT c.region,
@@ -132,7 +132,7 @@ JOIN dim_customer c ON c.customer_unique_id = f.customer_unique_id
 WHERE f.order_status = 'delivered'
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY c.region
-ORDER BY avg_order_value_brl DESC;
+ORDER BY avg_order_value_brl DESC, c.region;
 
 
 -- ----------------------------------------------------------------------------
@@ -156,7 +156,7 @@ FROM fact_orders
 WHERE order_status = 'delivered'
   AND purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY payment_type_main
-ORDER BY n_orders DESC;
+ORDER BY n_orders DESC, payment_type_main;
 
 -- 8b. Raten nach Bestellwert-Klasse (nur Kreditkarte, weil nur dort Raten möglich sind)
 -- ENTSCHEIDUNG: Ratenanalysen nur für Bestellungen mit Hauptzahlart
@@ -198,4 +198,4 @@ WHERE f.order_status = 'delivered'
   AND f.payment_type_main = 'credit_card'
 GROUP BY oc.category_en
 HAVING COUNT(*) >= 500
-ORDER BY avg_installments DESC;
+ORDER BY avg_installments DESC, oc.category_en;

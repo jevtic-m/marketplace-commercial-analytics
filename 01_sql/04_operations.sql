@@ -50,7 +50,7 @@ SELECT COALESCE(region, 'Gesamt')         AS region,
        ROUND(100.0 * AVG(days_in_transit) / AVG(days_total), 1) AS transit_share_pct
 FROM delivered
 GROUP BY ROLLUP (region)
-ORDER BY GROUPING(region), avg_days_total DESC;
+ORDER BY GROUPING(region), avg_days_total DESC, region;
 
 
 -- ----------------------------------------------------------------------------
@@ -94,7 +94,7 @@ WHERE f.order_status = 'delivered'
   AND f.days_total IS NOT NULL
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY ROLLUP (c.region)
-ORDER BY GROUPING(c.region), late_rate_pct DESC;
+ORDER BY GROUPING(c.region), late_rate_pct DESC, region;
 
 -- 10c. je Bundesstaat des Kunden, sortiert nach Verspätungsquote
 SELECT c.region,
@@ -109,7 +109,41 @@ WHERE f.order_status = 'delivered'
   AND f.days_total IS NOT NULL
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY c.region, c.state
-ORDER BY late_rate_pct DESC;
+ORDER BY late_rate_pct DESC, c.state;
+
+
+-- 10d. Zugesagte Lieferzeit je Region und nötiger Zusatzpuffer im Nordeste
+-- Frage: Wie lang ist die Zusage heute, und um wie viele Tage müsste sie im
+--   Nordeste länger sein, damit die Verspätungsquote auf den Gesamtwert fällt?
+-- Ergebnis: Die Zusage liegt im Median bei 22 Tagen im Sudeste, 31 im Nordeste
+--   und 37 im Norte. Mit 7 Tagen mehr Zusage läge die Verspätungsquote im
+--   Nordeste bei 6,57 % statt 12,76 %, also unter dem Gesamtwert von 6,79 %.
+--   Rechnerische Verschiebung, kein Experiment: Eine längere Zusage kann
+--   Kaufabschlüsse kosten, das zeigt dieser Datensatz nicht.
+SELECT c.region,
+       COUNT(*)                                                         AS n_orders,
+       MEDIAN(DATE_DIFF('day', o.order_purchase_timestamp::DATE,
+                        o.order_estimated_delivery_date::DATE))         AS median_promised_days
+FROM fact_orders f
+JOIN orders o       ON o.order_id = f.order_id
+JOIN dim_customer c ON c.customer_unique_id = f.customer_unique_id
+WHERE f.order_status = 'delivered'
+  AND f.days_total IS NOT NULL
+  AND f.purchase_date_id BETWEEN 20170101 AND 20180831
+GROUP BY c.region
+ORDER BY median_promised_days, c.region;
+
+SELECT extra_days,
+       ROUND(100.0 * AVG((f.days_vs_estimate > extra_days)::INTEGER), 2) AS late_rate_pct_nordeste
+FROM fact_orders f
+JOIN dim_customer c ON c.customer_unique_id = f.customer_unique_id
+CROSS JOIN (SELECT * FROM range(0, 11) AS t(extra_days))
+WHERE f.order_status = 'delivered'
+  AND f.days_total IS NOT NULL
+  AND f.purchase_date_id BETWEEN 20170101 AND 20180831
+  AND c.region = 'Nordeste'
+GROUP BY extra_days
+ORDER BY extra_days;
 
 
 -- ----------------------------------------------------------------------------
@@ -179,7 +213,7 @@ WHERE f.order_status = 'delivered'
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY p.category_en
 HAVING COUNT(*) >= 500
-ORDER BY freight_share_pct DESC;
+ORDER BY freight_share_pct DESC, p.category_en;
 
 -- 12b. je Entfernungsklasse zwischen Verkäufer- und Kundenstaat
 SELECT CASE
@@ -212,4 +246,4 @@ JOIN dim_seller s  ON s.seller_id = i.seller_id
 WHERE f.order_status = 'delivered'
   AND f.purchase_date_id BETWEEN 20170101 AND 20180831
 GROUP BY s.region
-ORDER BY n_items DESC;
+ORDER BY n_items DESC, s.region;

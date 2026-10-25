@@ -76,7 +76,7 @@ Auffälligkeiten aus den Laufzeit-Kennzahlen: Verzug gegen Versprechen reicht vo
 - **LEFT JOIN**: Alle 99.441 Bestellungen bleiben erhalten, auch ohne Position, Zahlung oder Bewertung. Ein INNER JOIN hätte 775 Bestellungen ohne Position und damit fast alle `unavailable`-Fälle verloren, die für die Stornoquote gebraucht werden.
 - **Umsatzdefinition**: `item_revenue` = Summe `price`. Fracht getrennt. `paid_total` nur für Zahlungsanalysen, weil Gutscheine und Mehrfachzahlungen den Betrag vom Warenwert entkoppeln.
 - **Hauptzahlart**: die Zahlart mit dem größten Betrag je Bestellung. 2.246 Bestellungen kombinieren mehrere Zahlarten, meist Kreditkarte plus Gutschein.
-- **Mehrfachbewertungen**: die jüngste Bewertung je Bestellung. Bei 202 der 547 Doppelbewertungen unterscheidet sich die Punktzahl. Die letzte Bewertung ist das endgültige Urteil des Kunden. Auf den Gesamtdurchschnitt wirkt sich das kaum aus (4,086 statt 4,086 über alle Zeilen).
+- **Mehrfachbewertungen**: die jüngste Bewertung je Bestellung. Bei 202 der 547 Doppelbewertungen unterscheidet sich die Punktzahl. Die letzte Bewertung ist das endgültige Urteil des Kunden. Auf den Gesamtdurchschnitt wirkt sich das kaum aus: 4,0863 mit einer Bewertung je Bestellung gegenüber 4,0864 über alle Bewertungszeilen.
 - **Verzug in Kalendertagen**: Das Lieferversprechen ist ein Datum ohne Uhrzeit. Der Verzug wird deshalb als Differenz der Kalendertage berechnet, `is_late` ist Verzug größer null. Die übrigen Laufzeiten sind Dezimaltage aus den vollen Zeitstempeln.
 - **Kategorien**: zwei fehlende Übersetzungen von Hand ergänzt, fehlende Kategorie wird `unknown`.
 - **first_sale_date** je Verkäufer aus allen Bestellungen unabhängig vom Status, weil es um den Zeitpunkt des Aktivwerdens geht.
@@ -350,3 +350,33 @@ Kontrollwerte für das fertige Dashboard (stehen auch in `layout.md`): Umsatz 13
 - **Zusatzskript**: Für die Exporte gibt es mit `06_dashboard_exports.py` ein Skript mehr als in der ursprünglichen Ordnerstruktur vorgesehen, ebenso die Hilfsdateien `run_sql.py` (SQL-Dateien ausführen) und `chart_style.py` (Diagrammstil). So bleibt jede Datei bei einer Aufgabe.
 
 **Abnahmekriterium AP7** (Dashboard läuft, Screenshots exportiert): nicht erfüllt, bewusst. Laut Auftrag gehören nur Exporte, Measures und Layout dazu. Exporte, `measures.dax` und `layout.md` liegen vollständig vor; Power-BI-Datei und Screenshots fehlen noch.
+
+---
+
+## AP8 — README, drei Empfehlungen, Aufräumen
+
+### Was wurde gemacht
+
+- README fertiggestellt: Kernergebnis oben, drei Empfehlungen mit Zahlen, alle Ergebnisse mit Diagrammen, Annahmen und Limitationen, Reproduktion von einem frischen Clone aus. Platzhalter gibt es nur noch für die vier Dashboard-Screenshots.
+- `reports/walkthrough.md` erklärt das Repo Datei für Datei in Ausführungsreihenfolge, mit den Zahlen und den Entscheidungsstellen.
+- Zwei Abfragen ergänzt, damit jede Zahl im README aus dem Repo stammt: in `04_operations.sql` die zugesagte Lieferzeit je Region und der nötige Zusatzpuffer im Nordeste (Abfrage 10d), in `02_validation.sql` das Maximum an Positionen je Bestellung.
+- Entscheidungsmarker für Analysefenster und Bestellstatus in `02_validation.sql` ergänzt.
+- Alle Ausgaben deterministisch gemacht: feste Sortierung in den Exporten und Ladeabfragen, zweites Sortierkriterium bei Gleichständen im Ranking.
+- Komplettlauf zweimal aus den Rohdaten: Alle Schritte laufen fehlerfrei, beide Läufe erzeugen bytegleiche Ergebnisdateien und Konsolenausgaben.
+
+### Was kam heraus
+
+Die drei Empfehlungen:
+
+1. **Qualitätsprogramm vor Ausschluss.** Unteres Score-Quartil (173 Verkäufer): 36,7 % der Ein-Stern-Bewertungen bei 23,3 % des Umsatzes. Ausschluss unter Score 62 kostet 4,8 % Umsatz für +0,03 Sterne.
+2. **Lieferzusagen realistisch setzen, zuerst im Nordeste.** Verspätungsquote 12,76 % gegenüber 6,79 % gesamt. 7 Tage mehr Zusage senken sie rechnerisch auf 6,57 %; die Zusage liegt dort aber schon bei 31 Tagen im Median, deshalb als A/B-Test.
+3. **Versandschwelle für Kleinteile, Lager näher am Nordosten.** electronics 29,5 % Frachtanteil, über 2.000 km 22,7 % gegenüber 11,8 % bis 100 km, teuerste Route SP nach PB mit 43,31 BRL je Position.
+
+### Warum so entschieden
+
+- **Empfehlung 1 setzt auf Programm statt Ausschluss**, weil die Gegenprobe zeigt, dass ein Score aus der Vergangenheit nur ein Drittel der Wirkung behält. Ausschluss bleibt das letzte Mittel.
+- **Empfehlung 2 als A/B-Test**, weil der Zusammenhang zwischen Verzug und Bewertung nicht kausal belegt ist und eine längere Zusage Käufe kosten kann. Der Test liefert beides: die Wirkung auf die Bewertung und auf die Kaufrate.
+- **Empfehlung 3 zweistufig**: Eine Versandschwelle ist schnell umsetzbar, Lagerhaltung ist teuer und lohnt nur für volumenstarke Routen.
+- **Hinweis zu AP3**: `02_validation.sql` hatte nach AP3 23 Anweisungen; mit B8 aus AP4 sind es jetzt 24, alle laufen fehlerfrei.
+
+**Abnahmekriterium AP8** (Repo reproduzierbar, 90-Sekunden-Story sitzt): erfüllt, soweit es das Repo betrifft. Der Komplettlauf aus den Rohdaten funktioniert mit den Befehlen aus dem README und liefert identische Ergebnisse. Die 90-Sekunden-Story steht mit echten Zahlen in `reports/interview_notes.md`; ob sie frei sitzt, zeigt erst das Üben.

@@ -86,18 +86,21 @@ QUERIES = {
                END AS delay_class_order
         FROM fact_orders f
         WHERE f.purchase_date_id BETWEEN 20170101 AND 20180831
+        ORDER BY f.order_id
     """,
     "fact_order_items": """
         SELECT i.order_id, i.order_item_id, i.product_id, i.seller_id,
                i.customer_unique_id, i.purchase_date_id, i.price, i.freight_value
         FROM fact_order_items i
         WHERE i.purchase_date_id BETWEEN 20170101 AND 20180831
+        ORDER BY i.order_id, i.order_item_id
     """,
     "dim_date": """
         SELECT date_id, date, year, quarter, month, month_name, week, weekday, is_weekend,
                strftime(date, '%Y-%m') AS year_month
         FROM dim_date
         WHERE date BETWEEN DATE '2017-01-01' AND DATE '2018-08-31'
+        ORDER BY date_id
     """,
     "dim_customer": """
         SELECT customer_unique_id, city, state, region
@@ -106,6 +109,7 @@ QUERIES = {
             SELECT customer_unique_id FROM fact_orders
             WHERE purchase_date_id BETWEEN 20170101 AND 20180831
         )
+        ORDER BY customer_unique_id
     """,
     "dim_product": """
         SELECT product_id, category_en, weight_g, volume_cm3, photos_qty
@@ -114,6 +118,7 @@ QUERIES = {
             SELECT product_id FROM fact_order_items
             WHERE purchase_date_id BETWEEN 20170101 AND 20180831
         )
+        ORDER BY product_id
     """,
     "dim_seller": """
         SELECT d.seller_id,
@@ -139,6 +144,7 @@ QUERIES = {
         FROM dim_seller d
         JOIN seller_scorecard s USING (seller_id)
         JOIN seller_quadrants q USING (seller_id)
+        ORDER BY d.seller_id
     """,
     "category_pareto": """
         WITH category_revenue AS (
@@ -150,12 +156,12 @@ QUERIES = {
               AND f.purchase_date_id BETWEEN 20170101 AND 20180831
             GROUP BY p.category_en
         )
-        SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC) AS revenue_rank,
+        SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC, category_en) AS revenue_rank,
                category_en,
                n_orders,
                ROUND(revenue_brl, 2) AS revenue_brl,
                ROUND(100.0 * revenue_brl / SUM(revenue_brl) OVER (), 3) AS revenue_share_pct,
-               ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC
+               ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC, category_en
                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / SUM(revenue_brl) OVER (), 3)
                      AS cumulative_share_pct
         FROM category_revenue
@@ -211,14 +217,15 @@ QUERIES = {
             WHERE order_status = 'delivered'
             GROUP BY seller_id
         )
-        SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC)                    AS revenue_rank,
+        -- Bei gleichem Umsatz entscheidet die seller_id, damit jeder Lauf dieselbe Reihenfolge liefert
+        SELECT ROW_NUMBER() OVER (ORDER BY revenue_brl DESC, seller_id)         AS revenue_rank,
                seller_id,
                ROUND(revenue_brl, 2)                                            AS revenue_brl,
                ROUND(100.0 * revenue_brl / SUM(revenue_brl) OVER (), 4)         AS revenue_share_pct,
-               ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC
+               ROUND(100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC, seller_id
                      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) / SUM(revenue_brl) OVER (), 3)
                                                                                 AS cumulative_share_pct,
-               ROUND(100.0 * ROW_NUMBER() OVER (ORDER BY revenue_brl DESC) / COUNT(*) OVER (), 3)
+               ROUND(100.0 * ROW_NUMBER() OVER (ORDER BY revenue_brl DESC, seller_id) / COUNT(*) OVER (), 3)
                                                                                 AS seller_share_pct
         FROM seller_revenue
         ORDER BY revenue_rank

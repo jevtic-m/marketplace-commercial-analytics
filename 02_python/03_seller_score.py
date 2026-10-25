@@ -91,7 +91,8 @@ MAX_SHRINKAGE = 100
 
 
 def load_seller_orders(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    seller_orders = con.execute("SELECT * FROM v_seller_orders").df()
+    # Feste Reihenfolge, damit Durchschnitte bei jedem Lauf bitgenau gleich gerechnet werden
+    seller_orders = con.execute("SELECT * FROM v_seller_orders ORDER BY seller_id, order_id").df()
     for column in ["is_late", "is_canceled"]:
         seller_orders[column] = seller_orders[column].astype(float)
     seller_orders["review_score"] = seller_orders["review_score"].astype(float)

@@ -65,3 +65,32 @@ Ich würde für jede Schwelle den Gewinn rechnen: Marge auf den verbleibenden Um
 
 **Was spricht dagegen, einfach alle schlecht bewerteten Verkäufer auszuschließen?**
 Erstens Zufall: 60 % der Verkäufer haben weniger als 10 Bestellungen, ihre Durchschnittsbewertung schwankt stark. Zweitens wirkt es weniger als gedacht: Mit einem Score aus 2017 entfallen in 2018 nur 3,3 % der Ein-Stern-Bewertungen bei 2,2 % Umsatz, die Durchschnittsbewertung steigt um 0,01 Sterne. Drittens hängen schlechte Bewertungen stark am gebrochenen Lieferversprechen, das teils bei der Logistik liegt, und 27 große, schwache Verkäufer mit 4,4 % Umsatz verliert man ungern ohne Qualitätsprogramm.
+
+---
+
+## AP7 / AP8 — Dashboard und Empfehlung
+
+**An wen richtet sich dein Dashboard, und woran erkennt man das?**
+Jede Seite hat eine Zielgruppe und eine Frage: der Überblick an Geschäftsführung und Category Management (Wachstum, Kategorien, Regionen), Operations an die Logistik (Lieferzeit-Zerlegung, Verspätung, Bewertung nach Verzug), die Verkäuferseite an das Seller Management (Quadranten, Scorecard), der Cutoff-Simulator an die Marktplatz-Leitung. Man erkennt es an den Kennzahlen und Reglern: Die Logistik sieht Tage und Verspätungsquoten, die Leitung sieht Umsatzverlust gegen vermiedene Ein-Stern-Bewertungen und kann die Schwelle selbst verschieben.
+
+**Welche deiner drei Empfehlungen ist die teuerste in der Umsetzung?**
+Die regionale Lagerhaltung für den Nordosten: Sie braucht Fläche, Bestand und neue Prozesse, bevor ein einziger Real Fracht gespart ist. Am günstigsten ist die Anpassung der Lieferzusagen, technisch nur eine Konfiguration; ihr Risiko liegt woanders, weil eine längere Zusage Käufe kosten kann, deshalb der A/B-Test. Das Qualitätsprogramm für Verkäufer liegt dazwischen und kostet vor allem Personal für Betreuung und Nachverfolgung.
+
+**Was würdest du als Nächstes analysieren, wenn du mehr Zeit hättest?**
+Erstens die Kommentartexte der Bewertungen: Damit ließe sich trennen, ob ein Ein-Stern-Urteil an der Lieferung oder am Produkt hängt, und das wäre der direkteste Weg zu den Störfaktoren. Zweitens Margendaten, um den Cutoff über Gewinn statt über ein Umsatzbudget zu wählen. Drittens ein Vorhersagemodell für schlechte Bewertungen auf Bestellebene, mit strenger Trennung nach Zeit, weil die Gegenprobe gezeigt hat, wie stark ein Score aus der Vergangenheit an Wirkung verliert.
+
+---
+
+## Die 90-Sekunden-Story
+
+> Ein Online-Marktplatz verkauft nichts selbst, er haftet mit seinem Ruf für tausende Verkäufer. Meine Frage war, wo dabei Kundenzufriedenheit und Geld verloren gehen.
+>
+> Grundlage waren rund 99.000 echte Bestellungen eines brasilianischen Marktplatzes in neun verknüpften Tabellen: Bestellungen, Positionen, Zahlungen, Bewertungen, Verkäufer, Produkte, Geodaten.
+>
+> Der erste Schritt war ein sauberes Datenmodell. Wer Bestellungen, Positionen und Zahlungen naiv zusammenjoint, bekommt hier 117.601 statt 99.441 Zeilen und überhöht die Zahlungen um 27 %, ohne Fehlermeldung. Und von den zwei Kundenkennungen identifiziert nur eine die reale Person; mit der falschen ist die Wiederkaufrate null statt drei Prozent.
+>
+> Der zentrale Befund: Kunden stört weniger die lange Lieferung als das gebrochene Versprechen. Pünktliche Lieferungen bekommen im Schnitt 4,29 Sterne, mehr als eine Woche Verzug 1,70. Bei gleicher Lieferdauer kostet ein gebrochenes Versprechen 1,5 Sterne, eine Woche mehr Dauer nur 0,15. Das ist ein Zusammenhang, kein Beweis, aber er hält in jeder Region und bei Einzelbestellungen.
+>
+> Daraus habe ich eine Verkäufer-Scorecard gebaut und einen Regler: Die 62 Verkäufer unter Score 62 tragen 9,7 % der Ein-Stern-Bewertungen bei 4,8 % des Umsatzes. Aber ein Ausschluss hebt die Durchschnittsbewertung nur um 0,03 Sterne, und mit einem Score aus dem Vorjahr bleibt ein Drittel davon übrig. Die Empfehlung lautet deshalb: wenige Verkäufer gezielt coachen und Lieferzusagen realistisch setzen, vor allem im Nordeste, wo jede achte Lieferung zu spät kommt.
+>
+> Gelernt habe ich, dass die eigentliche Arbeit im Datenmodell steckt, und dass eine ehrliche Gegenprobe eine schöne Schlagzeile manchmal kleiner macht. Genau das ist ihr Wert.

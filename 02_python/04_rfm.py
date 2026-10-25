@@ -74,6 +74,7 @@ def load_customer_orders(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         LEFT JOIN main_category m ON m.order_id = f.order_id AND m.category_rank = 1
         WHERE f.order_status = 'delivered'
           AND f.purchase_date_id BETWEEN 20170101 AND 20180831
+        ORDER BY f.order_id
     """
     orders = con.execute(query).df()
     orders["purchase_date"] = pd.to_datetime(orders["purchase_date"])

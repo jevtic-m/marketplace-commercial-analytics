@@ -73,10 +73,10 @@ WITH seller_revenue AS (
 ranked AS (
     SELECT seller_id,
            revenue_brl,
-           ROW_NUMBER() OVER (ORDER BY revenue_brl DESC)                        AS revenue_rank,
+           ROW_NUMBER() OVER (ORDER BY revenue_brl DESC, seller_id)             AS revenue_rank,
            COUNT(*) OVER ()                                                    AS n_sellers,
            100.0 * revenue_brl / SUM(revenue_brl) OVER ()                      AS revenue_share_pct,
-           100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC
+           100.0 * SUM(revenue_brl) OVER (ORDER BY revenue_brl DESC, seller_id
                                           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
                  / SUM(revenue_brl) OVER ()                                    AS cumulative_share_pct
     FROM seller_revenue
@@ -196,7 +196,7 @@ SELECT seller_id,
        ROUND(100 * cancel_rate, 2)        AS cancel_rate_pct,
        ROUND(avg_review, 2)               AS avg_review
 FROM v_seller_kpis
-ORDER BY revenue_brl DESC
+ORDER BY revenue_brl DESC, seller_id
 LIMIT 15;
 
 
