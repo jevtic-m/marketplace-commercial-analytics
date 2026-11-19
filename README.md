@@ -127,15 +127,17 @@ Das ist ein Zusammenhang, kein Kausalnachweis (siehe Annahmen und Limitationen).
 
 ## Dashboard
 
-Vier Seiten in Power BI: Marktplatz-Überblick, Operations, Verkäufer, Cutoff-Simulator. Der Bauplan mit Visuals, Feldern, Achsen und Kontrollwerten steht in `03_dashboard/layout.md`, die Measures in `03_dashboard/measures.dax`, die Daten in `03_dashboard/exports/`.
+Das Power-BI-Dashboard ist in Arbeit. Geplant sind vier Seiten: Marktplatz-Überblick, Operations, Verkäufer und Cutoff-Simulator. Der Bauplan mit Visuals, Feldern, Achsen und Kontrollwerten steht in `03_dashboard/layout.md`, die Measures in `03_dashboard/measures.dax`, die Daten in `03_dashboard/exports/`.
 
-[Screenshot Seite 1, Marktplatz-Überblick: 03_dashboard/screenshots/01_overview.png]
+Bis dahin zeigen die Diagramme aus der Python-Analyse die Kernaussagen der beiden wichtigsten Seiten.
 
-[Screenshot Seite 2, Operations: 03_dashboard/screenshots/02_operations.png]
+**Operations, Kernvisual:** Bewertung je Verzugsklasse.
 
-[Screenshot Seite 3, Verkäufer: 03_dashboard/screenshots/03_sellers.png]
+![Bewertung je Verzugsklasse](reports/figures/02_review_by_delay_class.png)
 
-[Screenshot Seite 4, Cutoff-Simulator: 03_dashboard/screenshots/04_cutoff_simulator.png]
+**Cutoff-Simulator:** Was ein Ausschluss von Verkäufern unter einer Score-Schwelle bringt und kostet.
+
+![Trade-off-Kurve des Verkäufer-Cutoffs](reports/figures/05_cutoff_tradeoff.png)
 
 ## Annahmen und Limitationen
 
@@ -215,7 +217,7 @@ python 02_python/06_dashboard_exports.py
   exports/                CSV-Dateien für Power BI
   layout.md               Seitenaufbau des Dashboards
   measures.dax            DAX-Measures
-  screenshots/            Dashboard-Screenshots
+  screenshots/            Dashboard-Screenshots (folgen, sobald das Dashboard steht)
 data/
   raw/                    Kaggle-CSVs (nicht im Repo)
   processed/              Platz für Zwischenstände (derzeit leer)
